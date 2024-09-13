@@ -17,14 +17,34 @@ namespace MarbleSolitaire
 		Blocked,
 		Label
 	};
+	struct Location
+	{
+		Location() {}
+		Location(char InColumn, int InRow)
+		{
+			Column = InColumn;
+			Row = InRow;
+		}
+		void PrintLocation()
+		{
+			cout << Column << Row;
+		}
+
+		bool operator==(const Location& other) const 
+		{
+			return Column == other.Column && Row == other.Row;
+		}
+
+		char Column = '!';  // Column label
+		int Row = -1;         // Row number
+	};
 
 	struct Tile
 	{
 		Tile()
 		{
 			SlotState = Error;
-			Column = '!';  // Column label
-			Row = -1;         // Row number
+			GridLocation = Location();
 		}
 
 		void PrintTile()
@@ -32,13 +52,13 @@ namespace MarbleSolitaire
 			switch (SlotState)
 			{
 			case Label:
-				if (Column == 64)
+				if (GridLocation.Column == 64)
 				{
 					cout << endl;
-					cout << Row << " ";
+					cout << GridLocation.Row << " ";
 				}
 				else
-					cout << Column << " ";
+					cout << GridLocation.Column << " ";
 				break;
 			case Marble:
 				cout << "O ";  // Marble
@@ -55,17 +75,12 @@ namespace MarbleSolitaire
 			}
 		};
 
-		void PrintLocation()
-		{
-			cout << Column << Row;
-		}
-
-		bool PossibleTileMoves(bool InPrint = false)
+		bool PossibleTileMoves()
 		{
 			if (SlotState == Blocked)
-				return;
+				return false;
 			if (SlotState == Empty)
-				return;
+				return false;
 			int possibile = 0;
 			for (auto neighbour : CaptureLocations)
 			{
@@ -78,9 +93,9 @@ namespace MarbleSolitaire
 					continue;
 					break;
 				case Empty:
-					PrintLocation();
+					GridLocation.PrintLocation();
 					cout << " Can Jump/Capture ";
-					neighbour->PrintLocation();
+					neighbour->GridLocation.PrintLocation();
 					cout << endl;
 					possibile++;
 					break;
@@ -88,16 +103,10 @@ namespace MarbleSolitaire
 			}
 			if (possibile != 0)
 				return true;
-			if (InPrint)
-			{
-				PrintLocation();
-				cout << " Has No valid Jumps/Captures";
-			}
 			return false;
 		}
 		MarbleSlot SlotState;
-		char Column = '!';  // Column label
-		int Row = -1;         // Row number
+		Location GridLocation;
 		vector<Tile*> CaptureLocations;
 	};
 
@@ -117,22 +126,36 @@ namespace MarbleSolitaire
 		}
 
 
-		void SelectTile(char InColumn, int InRow)
+		void Jump()
 		{
-			Tile* tile = FindTileByGridLocation(InColumn, InRow);
-	
+
+		}
+
+		bool SelectTile(Location InLocation)
+		{
+			Tile* tile = FindTileByGridLocation(InLocation);
+
 			if (!tile)
 			{
-				cout << InColumn << InRow << " Is an invalid selection";
-				return;
+				InLocation.PrintLocation();
+				cout << " Is an invalid selection";
+				return false;
 			}
-			tile->PossibleTileMoves();
+			if (!tile->PossibleTileMoves())
+			{
+				InLocation.PrintLocation();
+				cout << " Has no possible Jumps/Captures";
+				return false;
+			}
+			InLocation.PrintLocation();
+			cout << " Selected";
 		}
-		Tile* FindTileByGridLocation(char InColumn, int InRow)
+
+		Tile* FindTileByGridLocation(Location InLocation)
 		{
-			return FindByPredicate([InColumn, InRow](Tile* t)
+			return FindByPredicate([InLocation](Tile* t)
 				{
-					return t->Column == InColumn && t->Row == InRow;
+					return t->GridLocation == InLocation;
 				});
 		}
 
@@ -160,8 +183,8 @@ namespace MarbleSolitaire
 					string key = Col + to_string(Row);
 
 					// Set row and column labels
-					tile->Column = Col;
-					tile->Row = Row;
+					tile->GridLocation.Column = Col;
+					tile->GridLocation.Row = Row;
 					Col++;
 
 					if (x == 0 && y == 0)
@@ -204,10 +227,10 @@ namespace MarbleSolitaire
 			for (auto tile : Tiles)
 			{
 				vector<Tile*> CaptureLocations = {
-				 FindTileByGridLocation(tile->Column - 2, tile->Row),
-				 FindTileByGridLocation(tile->Column + 2, tile->Row),
-				 FindTileByGridLocation(tile->Column, tile->Row - 2),
-				 FindTileByGridLocation(tile->Column, tile->Row + 2)
+				 FindTileByGridLocation(Location( tile->GridLocation.Column - 2, tile->GridLocation.Row)),
+				 FindTileByGridLocation(Location(tile->GridLocation.Column + 2, tile->GridLocation.Row)),
+				 FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row - 2)),
+				 FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row + 2))
 				};
 				for (auto neighbour : CaptureLocations)
 				{
