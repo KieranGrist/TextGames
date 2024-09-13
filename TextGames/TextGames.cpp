@@ -17,6 +17,16 @@ namespace MarbleSolitaire
 		Blocked,
 		Label
 	};
+
+	enum Direction
+	{
+		Error,
+		Up,
+		Down,
+		Left,
+		Right
+	};
+
 	struct Location
 	{
 		Location() {}
@@ -25,18 +35,18 @@ namespace MarbleSolitaire
 			Column = InColumn;
 			Row = InRow;
 		}
-		void PrintLocation()
+		void PrintLocation() const
 		{
 			cout << Column << Row;
 		}
 
-		bool operator==(const Location& other) const 
+		bool operator==(const Location& other) const
 		{
 			return Column == other.Column && Row == other.Row;
 		}
 
 		char Column = '!';  // Column label
-		int Row = -1;         // Row number
+		int Row = -1;       // Row number
 	};
 
 	struct Tile
@@ -47,7 +57,7 @@ namespace MarbleSolitaire
 			GridLocation = Location();
 		}
 
-		void PrintTile()
+		void PrintTile() const
 		{
 			switch (SlotState)
 			{
@@ -75,13 +85,41 @@ namespace MarbleSolitaire
 			}
 		};
 
-		bool PossibleTileMoves()
+		static Direction GetDirection(const Location& InStart, const Location& InEnd)
+		{
+			if (InStart.Column > InEnd.Column)
+			{
+				return Left;
+			}
+			else if (InStart.Column < InEnd.Column)
+			{
+				return Right;
+			}
+			else if (InStart.Row > InEnd.Row)
+			{
+				return Up;
+			}
+			else if (InStart.Row < InEnd.Row)
+			{
+				return Down;
+			}
+
+			return Error;  // If neither column nor row changed
+		}
+
+		void PrintDirection(const Location& InStart, const Location& InEnd) const
+		{
+			cout << GetDirection(InStart, InEnd);
+		}
+
+
+		bool PossibleTileMoves() const
 		{
 			if (SlotState == Blocked)
 				return false;
 			if (SlotState == Empty)
 				return false;
-			int possibile = 0;
+			int possible = 0;
 			for (auto neighbour : CaptureLocations)
 			{
 				switch (neighbour->SlotState)
@@ -95,16 +133,15 @@ namespace MarbleSolitaire
 				case Empty:
 					GridLocation.PrintLocation();
 					cout << " Can Jump/Capture ";
-					neighbour->GridLocation.PrintLocation();
+					PrintDirection(GridLocation, neighbour->GridLocation);
 					cout << endl;
-					possibile++;
+					possible++;
 					break;
 				}
 			}
-			if (possibile != 0)
-				return true;
-			return false;
+			return possible != 0;
 		}
+
 		MarbleSlot SlotState;
 		Location GridLocation;
 		vector<Tile*> CaptureLocations;
@@ -113,11 +150,12 @@ namespace MarbleSolitaire
 	class Board
 	{
 	private:
-		vector<Tile*> Tiles;  // String key (like "A1") and Tile value
+		vector<Tile*> Tiles;  // Tiles in the board
 		int MaxCol = 7;
 		int MaxRow = 7;
+
 	public:
-		void PrintValidSelections()
+		void PrintValidSelections() const
 		{
 			for (auto tile : Tiles)
 			{
@@ -125,33 +163,42 @@ namespace MarbleSolitaire
 			}
 		}
 
-
-		void Jump()
+		void Jump(const Location& InJumpStart, const Location& InJumpTo)
 		{
-
+			Direction JumpDirection = Tile::GetDirection(InJumpStart, InJumpTo);
+			Tile* StartMarble = FindTileByGridLocation(InJumpStart);
+			Tile* JumpedMarble = FindTileByGridLocation(InJumpTo);
+			Tile* EmptySpace = FindTileByGridLocation(InJumpStart);
 		}
 
-		bool SelectTile(Location InLocation)
+		bool SelectTile(const Location& InLocation) const
 		{
 			Tile* tile = FindTileByGridLocation(InLocation);
 
 			if (!tile)
 			{
 				InLocation.PrintLocation();
-				cout << " Is an invalid selection";
+				cout << " is an invalid selection" << endl;
 				return false;
 			}
 			if (!tile->PossibleTileMoves())
 			{
 				InLocation.PrintLocation();
-				cout << " Has no possible Jumps/Captures";
+				cout << " has no possible Jumps/Captures" << endl;
 				return false;
 			}
 			InLocation.PrintLocation();
-			cout << " Selected";
+			cout << " selected" << endl;
+			return true;
 		}
 
-		Tile* FindTileByGridLocation(Location InLocation)
+		Tile* FindTileByGridLocation(const Location& InLocation, Direction InDirection)
+		{
+			// Additional logic for different directions can be added here
+			return FindTileByGridLocation(InLocation);  // Example: Using the default FindTileByGridLocation for now
+		}
+
+		Tile* FindTileByGridLocation(const Location& InLocation) const
 		{
 			return FindByPredicate([InLocation](Tile* t)
 				{
@@ -160,7 +207,7 @@ namespace MarbleSolitaire
 		}
 
 		// Function to find a tile by a predicate
-		Tile* FindByPredicate(function<bool(Tile*)> predicate)
+		Tile* FindByPredicate(function<bool(Tile*)> predicate) const
 		{
 			auto it = find_if(Tiles.begin(), Tiles.end(), predicate);
 			if (it != Tiles.end())
@@ -227,10 +274,10 @@ namespace MarbleSolitaire
 			for (auto tile : Tiles)
 			{
 				vector<Tile*> CaptureLocations = {
-				 FindTileByGridLocation(Location( tile->GridLocation.Column - 2, tile->GridLocation.Row)),
-				 FindTileByGridLocation(Location(tile->GridLocation.Column + 2, tile->GridLocation.Row)),
-				 FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row - 2)),
-				 FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row + 2))
+					FindTileByGridLocation(Location(tile->GridLocation.Column - 2, tile->GridLocation.Row)),
+					FindTileByGridLocation(Location(tile->GridLocation.Column + 2, tile->GridLocation.Row)),
+					FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row - 2)),
+					FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row + 2))
 				};
 				for (auto neighbour : CaptureLocations)
 				{
@@ -241,7 +288,7 @@ namespace MarbleSolitaire
 			}
 		}
 
-		void PrintBoard()
+		void PrintBoard() const
 		{
 			// Print the board with row numbers
 			for (auto tile : Tiles)
