@@ -1,127 +1,249 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <map>
+#include <algorithm>  // For std::find_if
+#include <functional> // For std::function
+
 using namespace std;
 
 namespace MarbleSolitaire
 {
-    enum MarbleSlot
-    {
-        Error,
-        Marble,
-        Empty,
-        Blocked
-    };
+	enum MarbleSlot
+	{
+		Error,
+		Marble,
+		Empty,
+		Blocked,
+		Label
+	};
 
-    struct Tile
-    {
-        Tile() : SlotState(Error), Row(-1), Column("!"), Label("") {}
-        MarbleSlot SlotState;
-        string Column;  // Column label
-        int Row;        // Row number
-        string Label;
-    };
+	struct Tile
+	{
+		Tile()
+		{
+			SlotState = Error;
+			Column = '!';  // Column label
+			Row = -1;         // Row number
+		}
 
-    class Board
-    {
-    private:
-        map<string, Tile> TileMap;  // String key (like "A1") and Tile value
-        int MaxRow = 7;  // Number of playable rows (1-7)
-        int MaxCol = 7;  // Number of playable columns (A-G)
+		void PrintTile()
+		{
+			switch (SlotState)
+			{
+			case Label:
+				if (Column == 64)
+				{
+					cout << endl;
+					cout << Row << " ";
+				}
+				else
+					cout << Column << " ";
+				break;
+			case Marble:
+				cout << "O ";  // Marble
+				break;
+			case Empty:
+				cout << "X ";  // Empty
+				break;
+			case Blocked:
+				cout << "  ";  // Blocked (no character for empty space)
+				break;
+			case Error:
+				cout << "? ";  // Error
+				break;
+			}
+		};
 
-    public:
-        void GenerateBoard()
-        {
-            // Set up the cross-shaped Marble Solitaire board without label tiles
-            for (int x = 0; x < MaxRow; x++)
-            {
-                char Col = 'A';  // Reset Col to 'A' at the start of each row
+		void PrintLocation()
+		{
+			cout << Column << Row;
+		}
 
-                for (int y = 0; y < MaxCol; y++)
-                {
-                    Tile tile;
-                    int Row = x + 1;
+		bool PossibleTileMoves(bool InPrint = false)
+		{
+			if (SlotState == Blocked)
+				return;
+			if (SlotState == Empty)
+				return;
+			int possibile = 0;
+			for (auto neighbour : CaptureLocations)
+			{
+				switch (neighbour->SlotState)
+				{
+				case Label:
+				case Blocked:
+				case Error:
+				case Marble:
+					continue;
+					break;
+				case Empty:
+					PrintLocation();
+					cout << " Can Jump/Capture ";
+					neighbour->PrintLocation();
+					cout << endl;
+					possibile++;
+					break;
+				}
+			}
+			if (possibile != 0)
+				return true;
+			if (InPrint)
+			{
+				PrintLocation();
+				cout << " Has No valid Jumps/Captures";
+			}
+			return false;
+		}
+		MarbleSlot SlotState;
+		char Column = '!';  // Column label
+		int Row = -1;         // Row number
+		vector<Tile*> CaptureLocations;
+	};
 
-                    // Construct the key from Col and Row (e.g., "A1", "B2", etc.)
-                    string key = Col + to_string(Row);
+	class Board
+	{
+	private:
+		vector<Tile*> Tiles;  // String key (like "A1") and Tile value
+		int MaxCol = 7;
+		int MaxRow = 7;
+	public:
+		void PrintValidSelections()
+		{
+			for (auto tile : Tiles)
+			{
+				tile->PossibleTileMoves();
+			}
+		}
 
-                    // Block the corners (outside the cross shape)
-                    if ((x < 2 && y < 2) || (x < 2 && y > 4) || (x > 4 && y < 2) || (x > 4 && y > 4))
-                    {
-                        tile.SlotState = Blocked;
-                    }
-                    else
-                    {
-                        // Place marbles everywhere except the center
-                        if (x == 3 && y == 3)
-                            tile.SlotState = Empty;
-                        else
-                            tile.SlotState = Marble;
-                    }
 
-                    // Store the tile in the map with its key
-                    TileMap[key] = tile;
+		void SelectTile(char InColumn, int InRow)
+		{
+			Tile* tile = FindTileByGridLocation(InColumn, InRow);
+	
+			if (!tile)
+			{
+				cout << InColumn << InRow << " Is an invalid selection";
+				return;
+			}
+			tile->PossibleTileMoves();
+		}
+		Tile* FindTileByGridLocation(char InColumn, int InRow)
+		{
+			return FindByPredicate([InColumn, InRow](Tile* t)
+				{
+					return t->Column == InColumn && t->Row == InRow;
+				});
+		}
 
-                    // Increment Col to move to the next column
-                    Col++;
-                }
-            }
-        }
+		// Function to find a tile by a predicate
+		Tile* FindByPredicate(function<bool(Tile*)> predicate)
+		{
+			auto it = find_if(Tiles.begin(), Tiles.end(), predicate);
+			if (it != Tiles.end())
+				return *it;
+			return nullptr;  // Return nullptr if no tile is found
+		}
 
-        void PrintBoard()
-        {
-            // Print the column labels
-            cout << "   ";  // Offset for row labels
-            for (char col = 'A'; col <= 'G'; col++)
-            {
-                cout << " " << col << " ";  // Print column labels A-G
-            }
-            cout << endl;
+		void GenerateBoard()
+		{
+			// Set up the cross-shaped Marble Solitaire board
+			for (int x = 0; x < MaxRow + 1; x++)
+			{
+				char Col = 64;
+				for (int y = 0; y < MaxCol + 1; y++)
+				{
+					Tile* tile = new Tile();
+					Tiles.push_back(tile);
 
-            // Print the board row by row
-            for (int x = 1; x <= MaxRow; x++)
-            {
-                // Print the row label
-                cout << " " << x << " ";  // Row number label
+					int Row = x;
+					string key = Col + to_string(Row);
 
-                for (char col = 'A'; col < 'A' + MaxCol; col++)
-                {
-                    string key = string(1, col) + to_string(x);  // Construct the key
+					// Set row and column labels
+					tile->Column = Col;
+					tile->Row = Row;
+					Col++;
 
-                    // Retrieve the tile from the map
-                    Tile& tile = TileMap[key];
+					if (x == 0 && y == 0)
+					{
+						tile->SlotState = Blocked;
+						continue;
+					}
+					if (x == 0)
+					{
+						tile->SlotState = Label;
+						continue;
+					}
+					if (y == 0)
+					{
+						tile->SlotState = Label;
+						continue;
+					}
 
-                    switch (tile.SlotState)
-                    {
-                    case Marble:
-                        cout << " O ";  // Marble
-                        break;
-                    case Empty:
-                        cout << " X ";  // Empty slot
-                        break;
-                    case Blocked:
-                        cout << "   ";  // Blocked area (no character)
-                        break;
-                    case Error:
-                    default:
-                        cout << " ? ";  // Error or unknown
-                        break;
-                    }
-                }
-                cout << endl;
-            }
-        }
-    };
+					// Block the corners (outside the cross shape)
+					if ((x < 3 && y < 3) || (x < 3 && y > 5) || (x > 5 && y < 3) || (x > 5 && y > 5))
+					{
+						tile->SlotState = Blocked;
+					}
+					else
+					{
+						// Place marbles everywhere except the center
+						if (x == 4 && y == 4)
+							tile->SlotState = Empty;
+						else
+							tile->SlotState = Marble;
+					}
+
+				}
+			}
+			GenerateCaptureLocations();
+		}
+
+		void GenerateCaptureLocations()
+		{
+			for (auto tile : Tiles)
+			{
+				vector<Tile*> CaptureLocations = {
+				 FindTileByGridLocation(tile->Column - 2, tile->Row),
+				 FindTileByGridLocation(tile->Column + 2, tile->Row),
+				 FindTileByGridLocation(tile->Column, tile->Row - 2),
+				 FindTileByGridLocation(tile->Column, tile->Row + 2)
+				};
+				for (auto neighbour : CaptureLocations)
+				{
+					if (!neighbour)
+						continue;
+					tile->CaptureLocations.push_back(neighbour);
+				}
+			}
+		}
+
+		void PrintBoard()
+		{
+			// Print the board with row numbers
+			for (auto tile : Tiles)
+			{
+				tile->PrintTile();
+			}
+			cout << endl;
+		}
+	};
+};
+
+void EmptyScreen()
+{
+
 }
 
 int main()
 {
-    // Create a board object
-    MarbleSolitaire::Board board;
+	// Create a board object
+	MarbleSolitaire::Board board;
 
-    // Generate and print the board
-    board.GenerateBoard();
-    board.PrintBoard();
+	// Generate and print the board
+	board.GenerateBoard();
+	board.PrintBoard();
+	board.PrintValidSelections();
 
-    return 0;
+	return 0;
 }
