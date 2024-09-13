@@ -18,5 +18,13 @@
     <ClCompile Include="TextGames.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MarbleSolitare.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MarbleSolitare.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
