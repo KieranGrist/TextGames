@@ -54,7 +54,7 @@ struct Tile
 
 	void PrintDirection(const Direction& InDirection) const;
 
-	bool PrintPossibleMoves() const;
+	void PrintPossibleMoves() const;
 
 	static Direction GetDirection(const Location& InStart, const Location& InEnd);
 
@@ -62,22 +62,22 @@ struct Tile
 
 	const Location& GetGridLocation() const;
 
-	const vector<Tile*>& GetCapturedLocations() const;
+	const vector<Direction>& GetPossibleJumpDirections() const;
 
-	bool HasPossibleCaptureLocations() const;
+	bool HasPossiblePossibleJumpDirection() const;
 
 	void SetSlotState(const MarbleSlot& InMarbleSlot);
 
 	void SetGridLocation(const Location& InGridLocation);
 
-	void ClearCapturedLocations();
+	void ClearPossibleJumpDirections();
 
-	void AddCapturedLocations(Tile* InLocation);
+	void AddPossibleJumpDirection(const Direction& InDirection);
 
 private:
 	MarbleSlot SlotState;
 	Location GridLocation;
-	vector<Tile*> CaptureLocations;
+	vector<Direction> PossibleJumpDirections;
 };
 
 class MarbleBoard
@@ -96,7 +96,7 @@ public:
 
 	void GenerateBoard();
 
-	void GenerateCaptureLocations();
+	void GeneratePossibleJumpDirection();
 
 	void PrintBoard() const;
 

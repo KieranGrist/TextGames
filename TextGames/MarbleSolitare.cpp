@@ -103,24 +103,24 @@ void Tile::SetGridLocation(const Location& InGridLocation)
 	GridLocation = InGridLocation;
 }
 
-void Tile::ClearCapturedLocations()
+void Tile::ClearPossibleJumpDirections()
 {
-	CaptureLocations.empty();
+	PossibleJumpDirections.clear();
 }
 
-void Tile::AddCapturedLocations(Tile* InLocation)
+void Tile::AddPossibleJumpDirection(const Direction& InDirection)
 {
-	CaptureLocations.push_back(InLocation);
+	PossibleJumpDirections.push_back(InDirection);
 }
 
-const vector<Tile*>& Tile::GetCapturedLocations() const
+const vector<Direction>& Tile::GetPossibleJumpDirections() const
 {
-	return CaptureLocations;
+	return PossibleJumpDirections;
 }
 
-bool Tile::HasPossibleCaptureLocations() const
+bool Tile::HasPossiblePossibleJumpDirection() const
 {
-	return CaptureLocations.size() > 0;
+	return PossibleJumpDirections.size() > 0;
 }
 
 void Tile::PrintDirection(const Direction& InDirection) const
@@ -147,33 +147,17 @@ void Tile::PrintDirection(const Direction& InDirection) const
 	}
 }
 
-bool Tile::PrintPossibleMoves() const
+void Tile::PrintPossibleMoves() const
 {
-	if (SlotState == MarbleSlot::Blocked)
-		return false;
-	if (SlotState == MarbleSlot::Empty)
-		return false;
-	int possible = 0;
-	for (auto neighbour : CaptureLocations)
+	if (SlotState != MarbleSlot::Marble)
+		return;
+	for (auto direction : PossibleJumpDirections)
 	{
-		switch (neighbour->SlotState)
-		{
-		case MarbleSlot::Label:
-		case MarbleSlot::Blocked:
-		case MarbleSlot::SlotError:
-		case MarbleSlot::Marble:
-			continue;
-			break;
-		case MarbleSlot::Empty:
-			GridLocation.PrintLocation();
-			cout << " Can Jump/Capture ";
-			PrintDirection(GetDirection(GridLocation, neighbour->GridLocation));
-			cout << endl;
-			possible++;
-			break;
-		}
+		GridLocation.PrintLocation();
+		cout << " Can Jump/Capture ";
+		PrintDirection(direction);
+		cout << endl;
 	}
-	return possible != 0;
 }
 
 void MarbleBoard::PrintValidSelections() const
@@ -186,17 +170,17 @@ void MarbleBoard::PrintValidSelections() const
 
 void MarbleBoard::Jump(const Location& InJumpStart, const Direction& InJumpDirection)
 {
-	Tile* StartMarble = FindTileByGridLocation(InJumpStart);
-	Tile* JumpedMarble = FindTileByDirection(InJumpStart, InJumpDirection, 1);
-	Tile* EmptySpace = FindTileByDirection(InJumpStart, InJumpDirection, 2);
+	Tile* start_marble = FindTileByGridLocation(InJumpStart);
+	Tile* jumped_marble = FindTileByDirection(InJumpStart, InJumpDirection, 1);
+	Tile* empty_space = FindTileByDirection(InJumpStart, InJumpDirection, 2);
 
-	if (!StartMarble || !JumpedMarble || !EmptySpace)
+	if (!start_marble || !jumped_marble || !empty_space)
 	{
 		return;
 	}
-	StartMarble->SetSlotState(MarbleSlot::Empty);
-	JumpedMarble->SetSlotState(MarbleSlot::Empty);
-	EmptySpace->SetSlotState(MarbleSlot::Marble);
+	start_marble->SetSlotState(MarbleSlot::Empty);
+	jumped_marble->SetSlotState(MarbleSlot::Empty);
+	empty_space->SetSlotState(MarbleSlot::Marble);
 }
 
 bool MarbleBoard::SelectTile(const Location& InLocation) const
@@ -209,7 +193,7 @@ bool MarbleBoard::SelectTile(const Location& InLocation) const
 		cout << " is an invalid selection" << endl;
 		return false;
 	}
-	if (!tile->HasPossibleCaptureLocations())
+	if (!tile->HasPossiblePossibleJumpDirection())
 	{
 		InLocation.PrintLocation();
 		cout << " has no possible Jumps/Captures" << endl;
@@ -316,24 +300,33 @@ void MarbleBoard::GenerateBoard()
 	}
 }
 
-void MarbleBoard::GenerateCaptureLocations()
+void MarbleBoard::GeneratePossibleJumpDirection()
 {
-	cout << " Possible Jumps " << endl;
+	cout << endl << "Possible Jumps " << endl;
 	for (auto tile : Tiles)
 	{
-		tile->ClearCapturedLocations();
-		vector<Tile*> CaptureLocations =
+		if (tile->GetSlotState() != MarbleSlot::Marble)
+			continue;
+		tile->ClearPossibleJumpDirections();
+		auto jump_directions =
 		{
-			FindTileByGridLocation(Location(tile->GetGridLocation().Column - 2, tile->GetGridLocation().Row)),
-			FindTileByGridLocation(Location(tile->GetGridLocation().Column + 2, tile->GetGridLocation().Row)),
-			FindTileByGridLocation(Location(tile->GetGridLocation().Column, tile->GetGridLocation().Row - 2)),
-			FindTileByGridLocation(Location(tile->GetGridLocation().Column, tile->GetGridLocation().Row + 2))
+			Direction::Up,
+			Direction::Down,
+			Direction::Left,
+			Direction::Right
 		};
-		for (auto neighbour : CaptureLocations)
+		for (auto current_direction : jump_directions)
 		{
-			if (!neighbour)
+			Tile* jumped_marble = FindTileByDirection(tile->GetGridLocation(), current_direction, 1);
+			Tile* empty_space = FindTileByDirection(tile->GetGridLocation(), current_direction, 2);
+
+			if (!jumped_marble || jumped_marble->GetSlotState() != MarbleSlot::Marble)
 				continue;
-			tile->AddCapturedLocations(neighbour);
+
+			if (!empty_space || empty_space->GetSlotState() != MarbleSlot::Empty)
+				continue;
+
+			tile->AddPossibleJumpDirection(current_direction);
 		}
 	}
 }
@@ -369,19 +362,24 @@ void MarbleSolitare::Update()
 {
 	EmptyScreen();
 	Board.PrintBoard();
-	Board.GenerateCaptureLocations();
+	Board.GeneratePossibleJumpDirection();
 	Board.PrintValidSelections();
 	cout << "Select Marble by typing Location then desired jump Direction" <<endl;
-	string TextInput;
-	cin >> TextInput;
-	SanitiseInput(TextInput);
+	string text_input;
+	cin >> text_input;
+	SanitiseInput(text_input);
 
 	Location MarbleLocation;
 	Direction JumpDirection;
-	SeperateLocationAndInput(TextInput, MarbleLocation, JumpDirection);
+	SeperateLocationAndInput(text_input, MarbleLocation, JumpDirection);
 	if (!Board.SelectTile(MarbleLocation))
 		return;
 	Board.Jump(MarbleLocation, JumpDirection);
+	Board.PrintBoard();
+	cout << "Jump Completed type anything to continue" << endl;
+	text_input = "";
+	cin >> text_input;
+	text_input = "";
 }
 
 void MarbleSolitare::SanitiseInput(string& InInput)
