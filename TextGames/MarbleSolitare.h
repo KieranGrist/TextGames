@@ -51,10 +51,30 @@ struct Tile
 	Tile();
 
 	void PrintTile() const;
-	void PrintDirection(const Direction& InDirection) const;
-	static Direction GetDirection(const Location& InStart, const Location& InEnd);
-	bool PossibleTileMoves() const;
 
+	void PrintDirection(const Direction& InDirection) const;
+
+	bool PrintPossibleMoves() const;
+
+	static Direction GetDirection(const Location& InStart, const Location& InEnd);
+
+	const MarbleSlot& GetSlotState() const;
+
+	const Location& GetGridLocation() const;
+
+	const vector<Tile*>& GetCapturedLocations() const;
+
+	bool HasPossibleCaptureLocations() const;
+
+	void SetSlotState(const MarbleSlot& InMarbleSlot);
+
+	void SetGridLocation(const Location& InGridLocation);
+
+	void ClearCapturedLocations();
+
+	void AddCapturedLocations(Tile* InLocation);
+
+private:
 	MarbleSlot SlotState;
 	Location GridLocation;
 	vector<Tile*> CaptureLocations;
@@ -70,7 +90,7 @@ private:
 public:
 	void PrintValidSelections() const;
 	
-	void Jump(const Location& InJumpStart, const Location& InJumpTo);
+	void Jump(const Location& InJumpStart, const Direction& InJumpDirection);
 
 	bool SelectTile(const Location& InLocation) const;
 
@@ -82,21 +102,26 @@ public:
 
 	int MarbleCount() const;
 
-	Tile* FindTileByDirection(Location InLocation, Direction InDirection) const;
+	Tile* FindTileByDirection(Location InLocation, const Direction& InDirection, int InDistance) const;
 
 	Tile* FindTileByGridLocation(const Location& InLocation) const;
 
 	Tile* FindByPredicate(function<bool(Tile*)> predicate) const;
 };
 
-class MarbleSolitare 
+class MarbleSolitare
 {
 public:
 	virtual void BeginPlay();
+
 	virtual void Update();
+
 	virtual void SanitiseInput(string& InInput);
+
 	virtual void SeperateLocationAndInput(const string& InInput, Location& OutLocation, Direction& OutDirection);
+
 	virtual bool IsPlaying();
+
 	void EmptyScreen();
 
 private:

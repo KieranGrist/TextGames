@@ -83,6 +83,46 @@ Direction Tile::GetDirection(const Location& InStart, const Location& InEnd)
 	return Direction::DirectionError;  // If neither column nor row changed
 }
 
+const MarbleSlot& Tile::GetSlotState() const
+{
+	return SlotState;
+}
+
+void Tile::SetSlotState(const MarbleSlot& InMarbleSlot)
+{
+	SlotState = InMarbleSlot;
+}
+
+const Location& Tile::GetGridLocation() const
+{
+	return GridLocation;
+}
+
+void Tile::SetGridLocation(const Location& InGridLocation)
+{
+	GridLocation = InGridLocation;
+}
+
+void Tile::ClearCapturedLocations()
+{
+	CaptureLocations.empty();
+}
+
+void Tile::AddCapturedLocations(Tile* InLocation)
+{
+	CaptureLocations.push_back(InLocation);
+}
+
+const vector<Tile*>& Tile::GetCapturedLocations() const
+{
+	return CaptureLocations;
+}
+
+bool Tile::HasPossibleCaptureLocations() const
+{
+	return CaptureLocations.size() > 0;
+}
+
 void Tile::PrintDirection(const Direction& InDirection) const
 {
 	cout << "Direction: ";
@@ -107,7 +147,7 @@ void Tile::PrintDirection(const Direction& InDirection) const
 	}
 }
 
-bool Tile::PossibleTileMoves() const
+bool Tile::PrintPossibleMoves() const
 {
 	if (SlotState == MarbleSlot::Blocked)
 		return false;
@@ -140,22 +180,23 @@ void MarbleBoard::PrintValidSelections() const
 {
 	for (auto tile : Tiles)
 	{
-		tile->PossibleTileMoves();
+		tile->PrintPossibleMoves();
 	}
 }
 
-void MarbleBoard::Jump(const Location& InJumpStart, const Location& InJumpTo)
+void MarbleBoard::Jump(const Location& InJumpStart, const Direction& InJumpDirection)
 {
-	Direction JumpDirection = Tile::GetDirection(InJumpStart, InJumpTo);
 	Tile* StartMarble = FindTileByGridLocation(InJumpStart);
-	Tile* JumpedMarble = FindTileByDirection(InJumpStart, JumpDirection);
-	Tile* EmptySpace = FindTileByGridLocation(InJumpStart);
+	Tile* JumpedMarble = FindTileByDirection(InJumpStart, InJumpDirection, 1);
+	Tile* EmptySpace = FindTileByDirection(InJumpStart, InJumpDirection, 2);
 
 	if (!StartMarble || !JumpedMarble || !EmptySpace)
 	{
 		return;
 	}
-
+	StartMarble->SetSlotState(MarbleSlot::Empty);
+	JumpedMarble->SetSlotState(MarbleSlot::Empty);
+	EmptySpace->SetSlotState(MarbleSlot::Marble);
 }
 
 bool MarbleBoard::SelectTile(const Location& InLocation) const
@@ -168,7 +209,7 @@ bool MarbleBoard::SelectTile(const Location& InLocation) const
 		cout << " is an invalid selection" << endl;
 		return false;
 	}
-	if (!tile->PossibleTileMoves())
+	if (!tile->HasPossibleCaptureLocations())
 	{
 		InLocation.PrintLocation();
 		cout << " has no possible Jumps/Captures" << endl;
@@ -179,23 +220,23 @@ bool MarbleBoard::SelectTile(const Location& InLocation) const
 	return true;
 }
 
-Tile* MarbleBoard::FindTileByDirection(Location InLocation, Direction InDirection) const
+Tile* MarbleBoard::FindTileByDirection(Location InLocation, const Direction& InDirection, int InDistance) const
 {
 	switch (InDirection)
 	{
 	case Direction::DirectionError:
 		break;
 	case Direction::Up:
-		InLocation.Row--;
+		InLocation.Row-= InDistance;
 		break;
 	case Direction::Down:
-		InLocation.Row++;
+		InLocation.Row+= InDistance;
 		break;
 	case Direction::Left:
-		InLocation.Column--;
+		InLocation.Column-= InDistance;
 		break;
 	case Direction::Right:
-		InLocation.Column++;
+		InLocation.Column+= InDistance;
 		break;
 	default:
 		break;
@@ -207,7 +248,7 @@ Tile* MarbleBoard::FindTileByGridLocation(const Location& InLocation) const
 {
 	return FindByPredicate([InLocation](Tile* t)
 		{
-			return t->GridLocation == InLocation;
+			return t->GetGridLocation() == InLocation;
 		});
 }
 
@@ -231,42 +272,44 @@ void MarbleBoard::GenerateBoard()
 			Tile* tile = new Tile();
 			Tiles.push_back(tile);
 
-			int Row = x;
-			string key = Col + to_string(Row);
+			int row = x;
+			string key = Col + to_string(row);
 
 			// Set row and column labels
-			tile->GridLocation.Column = Col;
-			tile->GridLocation.Row = Row;
+			Location grid_location;
+			grid_location.Column = Col;
+			grid_location.Row = row;
+			tile->SetGridLocation(grid_location);
 			Col++;
 
 			if (x == 0 && y == 0)
 			{
-				tile->SlotState = MarbleSlot::Blocked;
+			tile->SetSlotState(MarbleSlot::Blocked);
 				continue;
 			}
 			if (x == 0)
 			{
-				tile->SlotState = MarbleSlot::Label;
+				tile->SetSlotState(MarbleSlot::Label);
 				continue;
 			}
 			if (y == 0)
 			{
-				tile->SlotState = MarbleSlot::Label;
+				tile->SetSlotState(MarbleSlot::Label);
 				continue;
 			}
 
 			// Block the corners (outside the cross shape)
 			if ((x < 3 && y < 3) || (x < 3 && y > 5) || (x > 5 && y < 3) || (x > 5 && y > 5))
 			{
-				tile->SlotState = MarbleSlot::Blocked;
+				tile->SetSlotState(MarbleSlot::Blocked);
 			}
 			else
 			{
 				// Place marbles everywhere except the center
 				if (x == 4 && y == 4)
-					tile->SlotState = MarbleSlot::Empty;
+					tile->SetSlotState(MarbleSlot::Empty);
 				else
-					tile->SlotState = MarbleSlot::Marble;
+					tile->SetSlotState(MarbleSlot::Marble);
 			}
 
 		}
@@ -278,19 +321,19 @@ void MarbleBoard::GenerateCaptureLocations()
 	cout << " Possible Jumps " << endl;
 	for (auto tile : Tiles)
 	{
-		tile->CaptureLocations.clear();
+		tile->ClearCapturedLocations();
 		vector<Tile*> CaptureLocations =
 		{
-			FindTileByGridLocation(Location(tile->GridLocation.Column - 2, tile->GridLocation.Row)),
-			FindTileByGridLocation(Location(tile->GridLocation.Column + 2, tile->GridLocation.Row)),
-			FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row - 2)),
-			FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row + 2))
+			FindTileByGridLocation(Location(tile->GetGridLocation().Column - 2, tile->GetGridLocation().Row)),
+			FindTileByGridLocation(Location(tile->GetGridLocation().Column + 2, tile->GetGridLocation().Row)),
+			FindTileByGridLocation(Location(tile->GetGridLocation().Column, tile->GetGridLocation().Row - 2)),
+			FindTileByGridLocation(Location(tile->GetGridLocation().Column, tile->GetGridLocation().Row + 2))
 		};
 		for (auto neighbour : CaptureLocations)
 		{
 			if (!neighbour)
 				continue;
-			tile->CaptureLocations.push_back(neighbour);
+			tile->AddCapturedLocations(neighbour);
 		}
 	}
 }
@@ -310,7 +353,7 @@ int MarbleBoard::MarbleCount() const
 	int count = 0;
 	for (auto tile : Tiles)
 	{
-		if (tile->SlotState == MarbleSlot::Marble)
+		if (tile->GetSlotState() == MarbleSlot::Marble)
 			count++;
 	}
 	return count;
@@ -328,7 +371,7 @@ void MarbleSolitare::Update()
 	Board.PrintBoard();
 	Board.GenerateCaptureLocations();
 	Board.PrintValidSelections();
-	cout << " Select Marble by typing Location then desired jump Direction";
+	cout << "Select Marble by typing Location then desired jump Direction" <<endl;
 	string TextInput;
 	cin >> TextInput;
 	SanitiseInput(TextInput);
@@ -336,7 +379,9 @@ void MarbleSolitare::Update()
 	Location MarbleLocation;
 	Direction JumpDirection;
 	SeperateLocationAndInput(TextInput, MarbleLocation, JumpDirection);
-
+	if (!Board.SelectTile(MarbleLocation))
+		return;
+	Board.Jump(MarbleLocation, JumpDirection);
 }
 
 void MarbleSolitare::SanitiseInput(string& InInput)
