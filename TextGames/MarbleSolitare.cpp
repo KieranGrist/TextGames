@@ -5,10 +5,28 @@ Location::Location(char InColumn, int InRow)
 	Column = InColumn;
 	Row = InRow;
 }
+
+Location::Location(const string& InLocation)
+{
+	// Check if the input string has the expected length
+	if (InLocation.length() >= 2)
+	{
+		Column = InLocation[0];  // First character is the column (e.g., 'D')
+		Row = InLocation[1] - '0';  // Second character is the row (e.g., '4')
+	}
+	else
+	{
+		// Handle error: invalid location string
+		Column = '!';  // Or any default/error value
+		Row = -1;      // Or any default/error value
+	}
+}
+
 void Location::PrintLocation() const
 {
-	cout << Column << Row;
+	cout << "Location:" << Column << Row;
 }
+
 Tile::Tile()
 {
 	SlotState = MarbleSlot::SlotError;
@@ -67,6 +85,7 @@ Direction Tile::GetDirection(const Location& InStart, const Location& InEnd)
 
 void Tile::PrintDirection(const Direction& InDirection) const
 {
+	cout << "Direction: ";
 	switch (InDirection)
 	{
 	case Direction::DirectionError:
@@ -90,9 +109,9 @@ void Tile::PrintDirection(const Direction& InDirection) const
 
 bool Tile::PossibleTileMoves() const
 {
-	if (SlotState == Blocked)
+	if (SlotState == MarbleSlot::Blocked)
 		return false;
-	if (SlotState == Empty)
+	if (SlotState == MarbleSlot::Empty)
 		return false;
 	int possible = 0;
 	for (auto neighbour : CaptureLocations)
@@ -117,7 +136,7 @@ bool Tile::PossibleTileMoves() const
 	return possible != 0;
 }
 
-void Board::PrintValidSelections() const
+void MarbleBoard::PrintValidSelections() const
 {
 	for (auto tile : Tiles)
 	{
@@ -125,7 +144,7 @@ void Board::PrintValidSelections() const
 	}
 }
 
-void Board::Jump(const Location& InJumpStart, const Location& InJumpTo)
+void MarbleBoard::Jump(const Location& InJumpStart, const Location& InJumpTo)
 {
 	Direction JumpDirection = Tile::GetDirection(InJumpStart, InJumpTo);
 	Tile* StartMarble = FindTileByGridLocation(InJumpStart);
@@ -136,9 +155,10 @@ void Board::Jump(const Location& InJumpStart, const Location& InJumpTo)
 	{
 		return;
 	}
+
 }
 
-bool Board::SelectTile(const Location& InLocation) const
+bool MarbleBoard::SelectTile(const Location& InLocation) const
 {
 	Tile* tile = FindTileByGridLocation(InLocation);
 
@@ -159,7 +179,7 @@ bool Board::SelectTile(const Location& InLocation) const
 	return true;
 }
 
-Tile* Board::FindTileByDirection(Location InLocation, Direction InDirection)
+Tile* MarbleBoard::FindTileByDirection(Location InLocation, Direction InDirection) const
 {
 	switch (InDirection)
 	{
@@ -183,7 +203,7 @@ Tile* Board::FindTileByDirection(Location InLocation, Direction InDirection)
 	return FindTileByGridLocation(InLocation);  // Example: Using the default FindTileByGridLocation for now
 }
 
-Tile* Board::FindTileByGridLocation(const Location& InLocation) const
+Tile* MarbleBoard::FindTileByGridLocation(const Location& InLocation) const
 {
 	return FindByPredicate([InLocation](Tile* t)
 		{
@@ -192,7 +212,7 @@ Tile* Board::FindTileByGridLocation(const Location& InLocation) const
 }
 
 // Function to find a tile by a predicate
-Tile* Board::FindByPredicate(function<bool(Tile*)> predicate) const
+Tile* MarbleBoard::FindByPredicate(function<bool(Tile*)> predicate) const
 {
 	auto it = find_if(Tiles.begin(), Tiles.end(), predicate);
 	if (it != Tiles.end())
@@ -200,7 +220,7 @@ Tile* Board::FindByPredicate(function<bool(Tile*)> predicate) const
 	return nullptr;  // Return nullptr if no tile is found
 }
 
-void Board::GenerateBoard()
+void MarbleBoard::GenerateBoard()
 {
 	// Set up the cross-shaped Marble Solitaire board
 	for (int x = 0; x < MaxRow + 1; x++)
@@ -221,44 +241,46 @@ void Board::GenerateBoard()
 
 			if (x == 0 && y == 0)
 			{
-				tile->SlotState = Blocked;
+				tile->SlotState = MarbleSlot::Blocked;
 				continue;
 			}
 			if (x == 0)
 			{
-				tile->SlotState = Label;
+				tile->SlotState = MarbleSlot::Label;
 				continue;
 			}
 			if (y == 0)
 			{
-				tile->SlotState = Label;
+				tile->SlotState = MarbleSlot::Label;
 				continue;
 			}
 
 			// Block the corners (outside the cross shape)
 			if ((x < 3 && y < 3) || (x < 3 && y > 5) || (x > 5 && y < 3) || (x > 5 && y > 5))
 			{
-				tile->SlotState = Blocked;
+				tile->SlotState = MarbleSlot::Blocked;
 			}
 			else
 			{
 				// Place marbles everywhere except the center
 				if (x == 4 && y == 4)
-					tile->SlotState = Empty;
+					tile->SlotState = MarbleSlot::Empty;
 				else
-					tile->SlotState = Marble;
+					tile->SlotState = MarbleSlot::Marble;
 			}
 
 		}
 	}
-	GenerateCaptureLocations();
 }
 
-void Board::GenerateCaptureLocations()
+void MarbleBoard::GenerateCaptureLocations()
 {
+	cout << " Possible Jumps " << endl;
 	for (auto tile : Tiles)
 	{
-		vector<Tile*> CaptureLocations = {
+		tile->CaptureLocations.clear();
+		vector<Tile*> CaptureLocations =
+		{
 			FindTileByGridLocation(Location(tile->GridLocation.Column - 2, tile->GridLocation.Row)),
 			FindTileByGridLocation(Location(tile->GridLocation.Column + 2, tile->GridLocation.Row)),
 			FindTileByGridLocation(Location(tile->GridLocation.Column, tile->GridLocation.Row - 2)),
@@ -273,7 +295,7 @@ void Board::GenerateCaptureLocations()
 	}
 }
 
-void Board::PrintBoard() const
+void MarbleBoard::PrintBoard() const
 {
 	// Print the board with row numbers
 	for (auto tile : Tiles)
@@ -281,4 +303,99 @@ void Board::PrintBoard() const
 		tile->PrintTile();
 	}
 	cout << endl;
+}
+
+int MarbleBoard::MarbleCount() const
+{
+	int count = 0;
+	for (auto tile : Tiles)
+	{
+		if (tile->SlotState == MarbleSlot::Marble)
+			count++;
+	}
+	return count;
+}
+
+void MarbleSolitare::BeginPlay()
+{
+	EmptyScreen();
+	Board.GenerateBoard();
+}
+
+void MarbleSolitare::Update()
+{
+	EmptyScreen();
+	Board.PrintBoard();
+	Board.GenerateCaptureLocations();
+	Board.PrintValidSelections();
+	cout << " Select Marble by typing Location then desired jump Direction";
+	string TextInput;
+	cin >> TextInput;
+	SanitiseInput(TextInput);
+
+	Location MarbleLocation;
+	Direction JumpDirection;
+	SeperateLocationAndInput(TextInput, MarbleLocation, JumpDirection);
+
+}
+
+void MarbleSolitare::SanitiseInput(string& InInput)
+{
+	// Use std::transform to convert each character to uppercase
+	transform(InInput.begin(), InInput.end(), InInput.begin(), ::toupper);
+
+	// Remove spaces
+	InInput.erase(remove_if(InInput.begin(), InInput.end(), ::isspace), InInput.end());
+}
+
+void MarbleSolitare::SeperateLocationAndInput(const string& InInput, Location& OutLocation, Direction& OutDirection)
+{
+	// Assume the location part is the first two characters (e.g., 'D4')
+	if (InInput.length() >= 2)
+	{
+		OutLocation = Location(InInput.substr(0, 2));  // Extract the first two characters as location
+	}
+
+	// The remaining part is the direction (e.g., 'RIGHT')
+	string directionStr;
+	if (InInput.length() > 2)
+	{
+		directionStr = InInput.substr(2);  // Extract from the 3rd character to the end as direction
+	}
+
+	// Convert the direction string into the Direction enum
+	if (directionStr == "UP")
+	{
+		OutDirection = Direction::Up;
+	}
+	else if (directionStr == "DOWN")
+	{
+		OutDirection = Direction::Down;
+	}
+	else if (directionStr == "LEFT")
+	{
+		OutDirection = Direction::Left;
+	}
+	else if (directionStr == "RIGHT")
+	{
+		OutDirection = Direction::Right;
+	}
+	else
+	{
+		OutDirection = Direction::DirectionError;  // Default case for invalid input
+	}
+}
+
+bool MarbleSolitare::IsPlaying()
+{
+	return Board.MarbleCount() > 1;
+}
+
+void MarbleSolitare::EmptyScreen()
+{
+#ifdef _WIN32
+	system("cls");  // Windows
+#else
+	system("clear");  // Linux/Unix/OSX
+#endif
 }

@@ -9,7 +9,7 @@
 #include <cstdlib>
 using namespace std;
 
-enum MarbleSlot
+enum class MarbleSlot
 {
 	SlotError,   // Renamed to avoid conflict
 	Marble,
@@ -18,7 +18,7 @@ enum MarbleSlot
 	Label
 };
 
-enum Direction
+enum class Direction
 {
 	DirectionError,   // Renamed to avoid conflict
 	Up,
@@ -30,7 +30,11 @@ enum Direction
 struct Location
 {
 	Location() {}
+
 	Location(char InColumn, int InRow);
+
+	Location(const string& InLocation);
+
 	void PrintLocation() const;
 
 	bool operator==(const Location& other) const
@@ -44,11 +48,7 @@ struct Location
 
 struct Tile
 {
-	Tile()
-	{
-		SlotState = MarbleSlot::SlotError;
-		GridLocation = Location();
-	}
+	Tile();
 
 	void PrintTile() const;
 	void PrintDirection(const Direction& InDirection) const;
@@ -60,7 +60,7 @@ struct Tile
 	vector<Tile*> CaptureLocations;
 };
 
-class Board
+class MarbleBoard
 {
 private:
 	vector<Tile*> Tiles;  // Tiles in the board
@@ -69,22 +69,37 @@ private:
 
 public:
 	void PrintValidSelections() const;
+	
 	void Jump(const Location& InJumpStart, const Location& InJumpTo);
 
 	bool SelectTile(const Location& InLocation) const;
-
-	Tile* FindTileByDirection(Location InLocation, Direction InDirection);
-
-	Tile* FindTileByGridLocation(const Location& InLocation) const;
-
-
-
-	// Function to find a tile by a predicate
-	Tile* FindByPredicate(function<bool(Tile*)> predicate) const;
 
 	void GenerateBoard();
 
 	void GenerateCaptureLocations();
 
 	void PrintBoard() const;
+
+	int MarbleCount() const;
+
+	Tile* FindTileByDirection(Location InLocation, Direction InDirection) const;
+
+	Tile* FindTileByGridLocation(const Location& InLocation) const;
+
+	Tile* FindByPredicate(function<bool(Tile*)> predicate) const;
+};
+
+class MarbleSolitare 
+{
+public:
+	virtual void BeginPlay();
+	virtual void Update();
+	virtual void SanitiseInput(string& InInput);
+	virtual void SeperateLocationAndInput(const string& InInput, Location& OutLocation, Direction& OutDirection);
+	virtual bool IsPlaying();
+	void EmptyScreen();
+
+private:
+	// Create a board object
+	MarbleBoard Board;
 };
