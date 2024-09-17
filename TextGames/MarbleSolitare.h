@@ -36,12 +36,7 @@ struct Location
 
 	Location(const string& InLocation);
 
-	void PrintLocation() const;
-
-	bool operator==(const Location& other) const
-	{
-		return Column == other.Column && Row == other.Row;
-	}
+	bool Equals(const Location& other) const;
 
 	char Column = '!';  // Column label
 	int Row = -1;       // Row number
@@ -51,17 +46,9 @@ struct Tile
 {
 	Tile();
 
-	bool operator==(const Tile& other) const;
-
-	bool operator!=(const Tile& other) const;
-
-	void PrintTile() const;
-
-	void PrintDirection(const Direction& InDirection) const;
+	bool Equals(const Tile* other) const;
 
 	void PrintPossibleMoves() const;
-
-	static Direction GetDirection(const Location& InStart, const Location& InEnd);
 
 	const MarbleSlot& GetSlotState() const;
 
@@ -93,24 +80,22 @@ private:
 	int MaxRow = 7;
 
 public:
-	bool operator==(const MarbleBoard& other) const;
+	bool Equals(const MarbleBoard* other) const;
 
 	void PrintValidSelections() const;
-	
+
 	void Jump(const Location& InJumpStart, const Direction& InJumpDirection);
 
 	bool SelectTile(const Location& InLocation) const;
 
 	void GenerateBoard();
-	
+
 	void CopyBoard(const MarbleBoard* InBoard);
 
 	void GenerateBoardPossibleJumpDirections();
 
 	void GenerateTilePossibleJumpDirections(Tile* InTile);
 
-	void PrintBoard() const;
-	
 	int MarbleCount() const;
 
 	MarbleBoard* SimulateMove(const Location& InStartLocation, const Direction& InDirection);
@@ -137,11 +122,24 @@ public:
 
 	virtual bool IsPlaying();
 
+	static Direction GetDirection(const Location& InStart, const Location& InEnd);
+
+	static void PrintBoard(const MarbleBoard& InMarbleBoard);
+
+	static void PrintLocation(const Location& InLocation);
+
+	static void PrintTile(const Tile& InTitle);
+
+	static void PrintDirection(const Direction& InDirection);
+	
+	static void PrintSlotState(const MarbleSlot& InMarbleSlot);
+
 	void EmptyScreen();
 
 	void SimulateBFS();
 
 	void AddBoardToQueue(MarbleBoard* InMarbleBoard);
+
 	MarbleBoard* GetTopBoard();
 private:
 	// Create a board object

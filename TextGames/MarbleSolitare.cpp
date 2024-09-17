@@ -22,77 +22,10 @@ Location::Location(const string& InLocation)
 	}
 }
 
-void Location::PrintLocation() const
-{
-	cout << "Location:" << Column << Row;
-}
-
 Tile::Tile()
 {
 	SlotState = MarbleSlot::SlotError;
 	GridLocation = Location();
-}
-
-bool Tile::operator==(const Tile& other) const
-{
-	return SlotState == other.GetSlotState() &&
-		GridLocation == other.GetGridLocation() &&
-		PossibleJumpDirections == other.GetPossibleJumpDirections();
-}
-
-bool Tile::operator!=(const Tile& other) const
-{
-	return !(*this == other);
-}
-
-void Tile::PrintTile() const
-{
-	switch (SlotState)
-	{
-	case  MarbleSlot::Label:
-		if (GridLocation.Column == 64)
-		{
-			cout << endl;
-			cout << GridLocation.Row << " ";
-		}
-		else
-			cout << GridLocation.Column << " ";
-		break;
-	case  MarbleSlot::Marble:
-		cout << "O ";  // Marble
-		break;
-	case  MarbleSlot::Empty:
-		cout << "X ";  // Empty
-		break;
-	case  MarbleSlot::Blocked:
-		cout << "  ";  // Blocked (no character for empty space)
-		break;
-	case  MarbleSlot::SlotError:
-		cout << "? ";  // Error
-		break;
-	}
-};
-
-Direction Tile::GetDirection(const Location& InStart, const Location& InEnd)
-{
-	if (InStart.Column > InEnd.Column)
-	{
-		return Direction::Left;
-	}
-	else if (InStart.Column < InEnd.Column)
-	{
-		return Direction::Right;
-	}
-	else if (InStart.Row > InEnd.Row)
-	{
-		return Direction::Up;
-	}
-	else if (InStart.Row < InEnd.Row)
-	{
-		return Direction::Down;
-	}
-
-	return Direction::DirectionError;  // If neither column nor row changed
 }
 
 const MarbleSlot& Tile::GetSlotState() const
@@ -135,61 +68,17 @@ bool Tile::HasPossiblePossibleJumpDirection() const
 	return PossibleJumpDirections.size() > 0;
 }
 
-void Tile::PrintDirection(const Direction& InDirection) const
-{
-	cout << "Direction: ";
-	switch (InDirection)
-	{
-	case Direction::DirectionError:
-		break;
-	case Direction::Up:
-		cout << "Up";
-		break;
-	case Direction::Down:
-		cout << "Down";
-		break;
-	case Direction::Left:
-		cout << "Left";
-		break;
-	case Direction::Right:
-		cout << "Right";
-		break;
-	default:
-		break;
-	}
-}
-
 void Tile::PrintPossibleMoves() const
 {
 	if (SlotState != MarbleSlot::Marble)
 		return;
 	for (auto direction : PossibleJumpDirections)
 	{
-		GridLocation.PrintLocation();
+		MarbleSolitare::PrintLocation(GridLocation);
 		cout << " Can Jump/Capture ";
-		PrintDirection(direction);
+		MarbleSolitare::PrintDirection(direction);
 		cout << endl;
 	}
-}
-
-bool MarbleBoard::operator==(const MarbleBoard& other) const
-{
-	// Check if sizes are the same
-	if (Tiles.size() != other.Tiles.size())
-	{
-		return false;
-	}
-
-	// Compare each tile
-	for (size_t i = 0; i < Tiles.size(); ++i)
-	{
-		if (*(Tiles[i]) != *(other.Tiles[i]))  // Compare tiles using their own equality operator
-		{
-			return false;
-		}
-	}
-
-	return true;
 }
 
 void MarbleBoard::PrintValidSelections() const
@@ -221,17 +110,17 @@ bool MarbleBoard::SelectTile(const Location& InLocation) const
 
 	if (!tile)
 	{
-		InLocation.PrintLocation();
+		MarbleSolitare::PrintLocation(InLocation);
 		cout << " is an invalid selection" << endl;
 		return false;
 	}
 	if (!tile->HasPossiblePossibleJumpDirection())
 	{
-		InLocation.PrintLocation();
+		MarbleSolitare::PrintLocation(InLocation);
 		cout << " has no possible Jumps/Captures" << endl;
 		return false;
 	}
-	InLocation.PrintLocation();
+	MarbleSolitare::PrintLocation(InLocation);
 	cout << " selected" << endl;
 	return true;
 }
@@ -264,7 +153,7 @@ Tile* MarbleBoard::FindTileByGridLocation(const Location& InLocation) const
 {
 	return FindByPredicate([InLocation](Tile* t)
 		{
-			return t->GetGridLocation() == InLocation;
+			return t->GetGridLocation().Equals(InLocation);
 		});
 }
 
@@ -284,6 +173,8 @@ const vector<Tile*>& MarbleBoard::GetTiles() const
 
 void MarbleBoard::GenerateBoard()
 {
+	Tiles.clear();
+
 	// Set up the cross-shaped Marble Solitaire board
 	for (int x = 0; x < MaxRow + 1; x++)
 	{
@@ -337,16 +228,6 @@ void MarbleBoard::GenerateBoard()
 	}
 }
 
-void MarbleBoard::CopyBoard(const MarbleBoard* InBoard)
-{
-	auto new_tiles = InBoard->GetTiles();
-	for (Tile* coppied_tile : new_tiles)
-	{
-		Tile* tile = FindTileByGridLocation(coppied_tile->GetGridLocation());
-		tile->SetSlotState(coppied_tile->GetSlotState());
-	}
-}
-
 void MarbleBoard::GenerateBoardPossibleJumpDirections()
 {
 	cout << endl << "Possible Jumps " << endl;
@@ -383,16 +264,6 @@ void MarbleBoard::GenerateTilePossibleJumpDirections(Tile* InTile)
 	}
 }
 
-void MarbleBoard::PrintBoard() const
-{
-	// Print the board with row numbers
-	for (auto tile : Tiles)
-	{
-		tile->PrintTile();
-	}
-	cout << endl;
-}
-
 int MarbleBoard::MarbleCount() const
 {
 	int count = 0;
@@ -413,7 +284,7 @@ void MarbleSolitare::BeginPlay()
 void MarbleSolitare::Update()
 {
 	EmptyScreen();
-	Board.PrintBoard();
+	MarbleSolitare::PrintBoard(Board);
 	Board.GenerateBoardPossibleJumpDirections();
 	Board.PrintValidSelections();
 	cout << "Select Marble by typing Location then desired jump Direction" << endl;
@@ -427,7 +298,7 @@ void MarbleSolitare::Update()
 	if (!Board.SelectTile(MarbleLocation))
 		return;
 	Board.Jump(MarbleLocation, JumpDirection);
-	Board.PrintBoard();
+	MarbleSolitare::PrintBoard(Board);
 	cout << "Jump Completed type anything to continue" << endl;
 	text_input = "";
 	cin >> text_input;
@@ -486,6 +357,116 @@ bool MarbleSolitare::IsPlaying()
 	return Board.MarbleCount() > 1;
 }
 
+Direction MarbleSolitare::GetDirection(const Location& InStart, const Location& InEnd)
+{
+	if (InStart.Column > InEnd.Column)
+	{
+		return Direction::Left;
+	}
+	else if (InStart.Column < InEnd.Column)
+	{
+		return Direction::Right;
+	}
+	else if (InStart.Row > InEnd.Row)
+	{
+		return Direction::Up;
+	}
+	else if (InStart.Row < InEnd.Row)
+	{
+		return Direction::Down;
+	}
+
+	return Direction::DirectionError;  // If neither column nor row changed
+}
+
+void MarbleSolitare::PrintBoard(const MarbleBoard& InMarbleBoard)
+{
+	// Print the board with row numbers
+	for (auto tile : InMarbleBoard.GetTiles())
+	{
+		PrintTile(*tile);
+	}
+	cout << endl;
+}
+
+void MarbleSolitare::PrintLocation(const Location& InLocation)
+{
+	cout << "Location:" << InLocation.Column << InLocation.Row;
+}
+
+void MarbleSolitare::PrintTile(const Tile& InTitle)
+{
+	switch (InTitle.GetSlotState())
+	{
+	case  MarbleSlot::Label:
+		if (InTitle.GetGridLocation().Column == 64)
+		{
+			cout << endl;
+			cout << InTitle.GetGridLocation().Row << " ";
+		}
+		else
+			cout << InTitle.GetGridLocation().Column << " ";
+		break;
+	case  MarbleSlot::Marble:
+		cout << "O ";  // Marble
+		break;
+	case  MarbleSlot::Empty:
+		cout << "X ";  // Empty
+		break;
+	case  MarbleSlot::Blocked:
+		cout << "  ";  // Blocked (no character for empty space)
+		break;
+	case  MarbleSlot::SlotError:
+		cout << "? ";  // Error
+		break;
+	}
+}
+
+void MarbleSolitare::PrintDirection(const Direction& InDirection)
+{
+	cout << "Direction: ";
+	switch (InDirection)
+	{
+	case Direction::DirectionError:
+		break;
+	case Direction::Up:
+		cout << "Up";
+		break;
+	case Direction::Down:
+		cout << "Down";
+		break;
+	case Direction::Left:
+		cout << "Left";
+		break;
+	case Direction::Right:
+		cout << "Right";
+		break;
+	default:
+		break;
+	}
+}
+
+void MarbleSolitare::PrintSlotState(const MarbleSlot& InMarbleSlot)
+{
+	switch (InMarbleSlot)
+	{
+	case  MarbleSlot::Label:
+		cout << "Label";
+	case  MarbleSlot::Marble:
+		cout << "Marble";
+		break;
+	case  MarbleSlot::Empty:
+		cout << "Empty";
+		break;
+	case  MarbleSlot::Blocked:
+		cout << "Blocked";
+		break;
+	case  MarbleSlot::SlotError:
+		cout << "SlotError";
+		break;
+	}
+}
+
 void MarbleSolitare::EmptyScreen()
 {
 #ifdef _WIN32
@@ -534,30 +515,96 @@ void MarbleSolitare::SimulateBFS()
 	cout << wins << boards << jumps;
 }
 
-void MarbleSolitare::AddBoardToQueue(MarbleBoard* InMarbleBoard)
+bool MarbleBoard::Equals(const MarbleBoard* other) const
 {
-	for (MarbleBoard* visited_board : VisitedBoards)
+	cout << "Comparing two boards..." << std::endl;
+
+	// Check if sizes are the same
+	if (Tiles.size() != other->Tiles.size())
 	{
-		if (visited_board == InMarbleBoard)
-			return;
-	}
-	auto copy_queue = BoardQueue; // Make a copy of the queue
-
-	while (!copy_queue.empty())
-	{
-		auto current_board = copy_queue.front(); // Access the front element
-
-		if (current_board == InMarbleBoard)
-			return;
-
-		copy_queue.pop(); // Remove the processed element from the copy
+		cout << "Tile size mismatch: " << Tiles.size() << " vs " << other->Tiles.size() << std::endl;
+		return false;
 	}
 
-	BoardQueue.push(move(InMarbleBoard));
+	// Compare each tile
+	for (size_t i = 0; i < Tiles.size(); ++i)
+	{
+		cout << "Comparing Tile at index " << i << std::endl;
+		if (!Tiles[i]->Equals(other->Tiles[i]))  // Corrected this from your code: should be if (!Equals(...))
+		{
+			cout << "Tiles at index " << i << " are not equal!" << std::endl;
+			return false;
+		}
+	}
+
+	cout << "Boards are equal!" << std::endl;
+	return true;
+}
+
+void MarbleBoard::CopyBoard(const MarbleBoard* InBoard)
+{
+	GenerateBoard();
+	for (int i = 0; i < Tiles.size(); ++i)
+	{
+		Tiles[i]->SetGridLocation(InBoard->Tiles[i]->GetGridLocation());
+		Tiles[i]->SetSlotState(InBoard->Tiles[i]->GetSlotState());
+	}
+}
+
+bool Tile::Equals(const Tile* other) const
+{
+	cout << "Comparing tiles at location (" << GridLocation.Column << ", " << GridLocation.Row << ")" << std::endl;
+
+	// Check if SlotState is equal
+	if (SlotState != other->GetSlotState())
+	{
+		cout << "SlotState mismatch: ";
+		MarbleSolitare::PrintSlotState(SlotState);
+		cout << " vs ";
+		MarbleSolitare::PrintSlotState(other->GetSlotState());
+		cout << std::endl;
+		return false;
+	}
+
+	// Check if GridLocation is equal
+	if (!GridLocation.Equals(other->GetGridLocation()))
+	{
+		cout << "GridLocation mismatch: ";
+		MarbleSolitare::PrintLocation(GridLocation);
+		cout << " vs ";
+		MarbleSolitare::PrintLocation(other->GetGridLocation());
+		cout << std::endl;
+		return false;
+	}
+
+		// Compare each tile
+	for (size_t i = 0; i < PossibleJumpDirections.size(); ++i)
+	{
+		cout << "Comparing PossibleJumpDirection at index " << i << std::endl;
+		if (!PossibleJumpDirections[i] == other->PossibleJumpDirections[i])  // Corrected this from your code: should be if (!Equals(...))
+		{
+				cout << "Direction mismatch: ";
+				MarbleSolitare::PrintDirection(PossibleJumpDirections[i]);
+				cout << " vs ";
+				MarbleSolitare::PrintDirection(other->PossibleJumpDirections[i]);
+				cout << std::endl;
+				return false;
+			return false;
+		}
+	}
+	cout << "Tiles are equal!" << std::endl;
+	return true;
+}
+
+bool Location::Equals(const Location& other) const
+{
+	cout << "Comparing Locations: (" << Column << ", " << Row << ") vs (" << other.Column << ", " << other.Row << ")" << std::endl;
+	return Column == other.Column && Row == other.Row;
 }
 
 MarbleBoard* MarbleSolitare::GetTopBoard()
 {
+	cout << "Fetching top board from queue..." << std::endl;
 	MarbleBoard* popped_board = move(BoardQueue.front());
 	BoardQueue.pop();
 	VisitedBoards.push_back(popped_board);
@@ -566,6 +613,10 @@ MarbleBoard* MarbleSolitare::GetTopBoard()
 
 MarbleBoard* MarbleBoard::SimulateMove(const Location& startLocation, const Direction& direction)
 {
+	cout << "Simulating move from location (" << startLocation.Column << ", " << startLocation.Row << ") in direction ";
+	MarbleSolitare::PrintDirection(direction);
+	cout << std::endl;
+
 	MarbleBoard* new_board = new MarbleBoard();
 	new_board->GenerateBoard();
 	new_board->CopyBoard(this);
@@ -578,7 +629,7 @@ MarbleBoard* MarbleBoard::SimulateMove(const Location& startLocation, const Dire
 	// Check if the move is valid (i.e., there's a marble to jump over and an empty space to land on)
 	if (!start_marble || !jumped_marble || !empty_space)
 	{
-		// Invalid move, return nullptr
+		cout << "Invalid move: missing tile(s)" << std::endl;
 		return nullptr;
 	}
 
@@ -586,15 +637,46 @@ MarbleBoard* MarbleBoard::SimulateMove(const Location& startLocation, const Dire
 		jumped_marble->GetSlotState() != MarbleSlot::Marble ||
 		empty_space->GetSlotState() != MarbleSlot::Empty)
 	{
-		// Invalid move if any of the above conditions fail
+		cout << "Invalid move: slot states not suitable for a jump" << std::endl;
 		return nullptr;
 	}
 
 	// Simulate the jump: set the start and jumped marble slots to empty, and the destination to a marble
+	cout << "Performing jump..." << std::endl;
 	start_marble->SetSlotState(MarbleSlot::Empty);
 	jumped_marble->SetSlotState(MarbleSlot::Empty);
 	empty_space->SetSlotState(MarbleSlot::Marble);
 
-	// Return the new board state
 	return new_board;
+}
+
+void MarbleSolitare::AddBoardToQueue(MarbleBoard* InMarbleBoard)
+{
+	cout << "Attempting to add board to queue..." << std::endl;
+
+	// Check if the board is already in the visited boards
+	for (MarbleBoard* visited_board : VisitedBoards)
+	{
+		if (visited_board->Equals(InMarbleBoard))
+		{
+			cout << "Board is already in visited list, skipping." << std::endl;
+			return;
+		}
+	}
+
+	// Check if the board is already in the queue
+	auto copy_queue = BoardQueue; // Make a copy of the queue
+	while (!copy_queue.empty())
+	{
+		auto current_board = copy_queue.front(); // Access the front element
+		if (current_board->Equals(InMarbleBoard))
+		{
+			cout << "Board is already in queue, skipping." << std::endl;
+			return;
+		}
+		copy_queue.pop(); // Remove the processed element from the copy
+	}
+
+	cout << "Adding new board to the queue." << std::endl;
+	BoardQueue.push(move(InMarbleBoard));
 }
