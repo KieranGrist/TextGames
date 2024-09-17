@@ -5,10 +5,11 @@
 int main()
 {
 	MarbleSolitare Solitare;
-	Solitare.BeginPlay();
+	Solitare.SimulateBFS();
+	/*Solitare.BeginPlay();
 	while (Solitare.IsPlaying())
 	{
 		Solitare.Update();
-	}
+	}*/
 	return 0;
 }

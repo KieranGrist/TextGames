@@ -7,6 +7,7 @@
 #include <algorithm>  // For std::find_if
 #include <functional> // For std::function
 #include <cstdlib>
+#include <queue>
 using namespace std;
 
 enum class MarbleSlot
@@ -50,6 +51,10 @@ struct Tile
 {
 	Tile();
 
+	bool operator==(const Tile& other) const;
+
+	bool operator!=(const Tile& other) const;
+
 	void PrintTile() const;
 
 	void PrintDirection(const Direction& InDirection) const;
@@ -88,6 +93,8 @@ private:
 	int MaxRow = 7;
 
 public:
+	bool operator==(const MarbleBoard& other) const;
+
 	void PrintValidSelections() const;
 	
 	void Jump(const Location& InJumpStart, const Direction& InJumpDirection);
@@ -95,18 +102,26 @@ public:
 	bool SelectTile(const Location& InLocation) const;
 
 	void GenerateBoard();
+	
+	void CopyBoard(const MarbleBoard* InBoard);
 
-	void GeneratePossibleJumpDirection();
+	void GenerateBoardPossibleJumpDirections();
+
+	void GenerateTilePossibleJumpDirections(Tile* InTile);
 
 	void PrintBoard() const;
-
+	
 	int MarbleCount() const;
+
+	MarbleBoard* SimulateMove(const Location& InStartLocation, const Direction& InDirection);
 
 	Tile* FindTileByDirection(Location InLocation, const Direction& InDirection, int InDistance) const;
 
 	Tile* FindTileByGridLocation(const Location& InLocation) const;
 
 	Tile* FindByPredicate(function<bool(Tile*)> predicate) const;
+
+	const vector<Tile*>& GetTiles() const;
 };
 
 class MarbleSolitare
@@ -124,7 +139,14 @@ public:
 
 	void EmptyScreen();
 
+	void SimulateBFS();
+
+	void AddBoardToQueue(MarbleBoard* InMarbleBoard);
+	MarbleBoard* GetTopBoard();
 private:
 	// Create a board object
 	MarbleBoard Board;
+
+	queue<MarbleBoard*> BoardQueue;
+	vector<MarbleBoard*> VisitedBoards;
 };
