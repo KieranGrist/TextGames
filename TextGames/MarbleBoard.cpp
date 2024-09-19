@@ -2,7 +2,7 @@
 #include "MarbleBoard.h"
 #include "Tile.h"
 
-bool MarbleBoard::Equals(const vector<unique_ptr<MarbleBoard>> other) const
+bool MarbleBoard::Equals(const MarbleBoard* other) const
 {
 	//cout << "Comparing two boards..." << std::endl;
 	auto board = GetValidTiles();
@@ -131,7 +131,7 @@ void MarbleBoard::GenerateBoard()
 	}
 }
 
-void MarbleBoard::CopyBoard(const vector<unique_ptr<MarbleBoard>> InBoard)
+void MarbleBoard::CopyBoard(const MarbleBoard* InBoard)
 {
 	GenerateBoard();
 	for (int i = 0; i < Tiles.size(); ++i)
@@ -228,10 +228,10 @@ Tile* MarbleBoard::FindByPredicate(function<bool(Tile*)> predicate) const
 	return nullptr;  // Return nullptr if no tile is found
 }
 
- vector<unique_ptr<Tile>> MarbleBoard::FilterTilesByPredicate(function<bool(Tile*)> InPredicate) const
+ vector<Tile*> MarbleBoard::FilterTilesByPredicate(function<bool(Tile*)> InPredicate) const
 {
 	// Create a vector to store the filtered tiles
-	vector<unique_ptr<Tile>> marbles;
+	vector<Tile*> marbles;
 
 	// Preallocate memory to avoid reallocations, assuming worst case all tiles match
 	marbles.reserve(Tiles.size());
@@ -248,12 +248,12 @@ Tile* MarbleBoard::FindByPredicate(function<bool(Tile*)> predicate) const
 	return marbles;
 }
 
-const vector<unique_ptr<Tile>>& MarbleBoard::GetTiles() const
+const vector<Tile*>& MarbleBoard::GetTiles() const
 {
 	return Tiles;
 }
 
- vector<unique_ptr<Tile>> MarbleBoard::GetValidTiles() const
+ vector<Tile*> MarbleBoard::GetValidTiles() const
 {
 	return FilterTilesByPredicate([](Tile* tile) -> bool
 		{
@@ -263,7 +263,7 @@ const vector<unique_ptr<Tile>>& MarbleBoard::GetTiles() const
 		});
 }
 
- vector<unique_ptr<Tile>> MarbleBoard::GetMarbles() const
+ vector<Tile*> MarbleBoard::GetMarbles() const
 {
 	return FilterTilesByPredicate([](Tile* tile) -> bool
 		{
@@ -271,7 +271,7 @@ const vector<unique_ptr<Tile>>& MarbleBoard::GetTiles() const
 		});
 }
 
- vector<unique_ptr<Tile>> MarbleBoard::GetMoveableMarbles() const
+ vector<Tile*> MarbleBoard::GetMoveableMarbles() const
 {
 	return FilterTilesByPredicate([](Tile* tile) -> bool
 		{

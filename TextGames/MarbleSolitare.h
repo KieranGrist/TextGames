@@ -16,7 +16,7 @@ public:
 
 	virtual bool IsPlaying();
 
-	static vector<unique_ptr<MarbleBoard>> SimulateMove(const vector<unique_ptr<MarbleBoard>> InMarbleBoard, const Location& InStartLocation, const Direction& InDirection);
+	static MarbleBoard* SimulateMove(const MarbleBoard* InMarbleBoard, const Location& InStartLocation, const Direction& InDirection);
 
 	static Direction GetDirection(const Location& InStart, const Location& InEnd);
 
@@ -34,18 +34,18 @@ public:
 
 	void SimulateBFS();
 
-	void AddBoardToQueue(const vector<unique_ptr<MarbleBoard>>& InMarbleBoard);
+	void AddBoardToQueue(MarbleBoard* InMarbleBoard);
 	
-	bool BoardPressent(const vector<unique_ptr<MarbleBoard>&> InMarbleBoard);
+	bool BoardPressent(MarbleBoard* InMarbleBoard);
 
-	bool FindBoardByPredicte(function<bool(vector<unique_ptr<MarbleBoard>>)> InPredicate) const;
+	bool FindBoardByPredicte(function<bool(MarbleBoard*)> InPredicate) const;
 
-	vector<unique_ptr<MarbleBoard>> GetTopBoard();
+	MarbleBoard* GetTopBoard();
 private:
 	// Create a board object
 	MarbleBoard Board;
 
-	vector<vector<unique_ptr<MarbleBoard>>> BoardQueue;
+	vector<MarbleBoard*> BoardQueue;
 
-	vector<vector<unique_ptr<MarbleBoard>>> VisitedBoards;
+	vector<MarbleBoard*> VisitedBoards;
 };

@@ -5,14 +5,14 @@ class Tile;
 class MarbleBoard
 {
 private:
-	vector<unique_ptr<Tile>> Tiles;  // Tiles in the board
+	vector<Tile*> Tiles;  // Tiles in the board
 	int MaxCol = 7;
 	int MaxRow = 7;
 
 public:
 	MarbleBoard() {}
 
-	bool Equals(const vector<unique_ptr<MarbleBoard>> other) const;
+	bool Equals(const MarbleBoard* other) const;
 
 	void PrintValidSelections() const;
 
@@ -22,7 +22,7 @@ public:
 
 	void GenerateBoard();
 
-	void CopyBoard(const vector<unique_ptr<MarbleBoard>> InBoard);
+	void CopyBoard(const MarbleBoard* InBoard);
 
 	void GenerateBoardPossibleJumpDirections();
 
@@ -36,13 +36,13 @@ public:
 
 	Tile* FindByPredicate(function<bool(Tile*)> InPredicate) const;
 
-	const vector<unique_ptr<Tile>>& GetTiles() const;
+	const vector<Tile*>& GetTiles() const;
 
-	vector<unique_ptr<Tile>>FilterTilesByPredicate(function<bool(Tile*)> InPredicate) const;
+	vector<Tile*>FilterTilesByPredicate(function<bool(Tile*)> InPredicate) const;
 
-	vector<unique_ptr<Tile>> GetValidTiles() const;
+	vector<Tile*> GetValidTiles() const;
 
-	vector<unique_ptr<Tile>> GetMarbles() const;
+	vector<Tile*> GetMarbles() const;
 	
-	vector<unique_ptr<Tile>> GetMoveableMarbles() const;
+	vector<Tile*> GetMoveableMarbles() const;
 };
