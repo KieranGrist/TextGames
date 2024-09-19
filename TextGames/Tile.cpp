@@ -1,4 +1,6 @@
 #include "Tile.h"
+#include "MarbleSolitare.h"
+
 Tile::Tile()
 {
 	SlotState = MarbleSlot::SlotError;
@@ -8,16 +10,16 @@ Tile::Tile()
 bool Tile::Equals(const Tile* other) const
 {
 	//cout << "Comparing tiles at location: ";
-	//PrintLocation(GridLocation);
+	//MarbleSolitare::PrintLocation(GridLocation);
 //cout << std::endl;
 
 	// Check if SlotState is equal
 	if (SlotState != other->GetSlotState())
 	{
 		//cout << "SlotState mismatch: ";
-		//PrintSlotState(SlotState);
+		//MarbleSolitare::PrintSlotState(SlotState);
 		//cout << " vs ";
-		//PrintSlotState(other->GetSlotState());
+		//MarbleSolitare::PrintSlotState(other->GetSlotState());
 		//cout << std::endl;
 		return false;
 	}
@@ -26,9 +28,9 @@ bool Tile::Equals(const Tile* other) const
 	if (!GridLocation.Equals(other->GetGridLocation()))
 	{
 		//cout << "GridLocation mismatch: ";
-		//PrintLocation(GridLocation);
+		//MarbleSolitare::PrintLocation(GridLocation);
 		//cout << " vs ";
-		///PrintLocation(other->GetGridLocation());
+		///MarbleSolitare::PrintLocation(other->GetGridLocation());
 		//cout << std::endl;
 		return false;
 	}
@@ -45,9 +47,9 @@ bool Tile::Equals(const Tile* other) const
 		if (PossibleJumpDirections[i] != other->PossibleJumpDirections[i])  // Corrected this from your code: should be if (!Equals(...))
 		{
 			//cout << "Direction mismatch: ";
-			//PrintDirection(PossibleJumpDirections[i]);
+			//MarbleSolitare::PrintDirection(PossibleJumpDirections[i]);
 			//cout << " vs ";
-			//PrintDirection(other->PossibleJumpDirections[i]);
+			//MarbleSolitare::PrintDirection(other->PossibleJumpDirections[i]);
 			//cout << std::endl;
 			return false;
 		}
@@ -63,9 +65,9 @@ void Tile::PrintPossibleMoves() const
 	cout << " Possible Jumps" << endl;
 	for (auto direction : PossibleJumpDirections)
 	{
-		PrintLocation(GridLocation);
+		MarbleSolitare::PrintLocation(GridLocation);
 		cout << " Can Jump/Capture ";
-		PrintDirection(direction);
+		MarbleSolitare::PrintDirection(direction);
 		cout << endl;
 	}
 }

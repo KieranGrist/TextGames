@@ -1,4 +1,6 @@
 #include "MarbleSolitare.h"
+#include "Tile.h"
+#include "MarbleBoard.h"
 
 void MarbleSolitare::BeginPlay()
 {
@@ -9,7 +11,7 @@ void MarbleSolitare::BeginPlay()
 void MarbleSolitare::Update()
 {
 	EmptyScreen();
-	PrintBoard(Board);
+	MarbleSolitare::PrintBoard(Board);
 	Board.GenerateBoardPossibleJumpDirections();
 	Board.PrintValidSelections();
 	cout << "Select Marble by typing Location then desired jump Direction" << endl;
@@ -23,7 +25,7 @@ void MarbleSolitare::Update()
 	if (!Board.SelectTile(MarbleLocation))
 		return;
 	Board.Jump(MarbleLocation, JumpDirection);
-	PrintBoard(Board);
+	MarbleSolitare::PrintBoard(Board);
 	cout << "Jump Completed type anything to continue" << endl;
 	text_input = "";
 	cin >> text_input;
@@ -82,14 +84,14 @@ bool MarbleSolitare::IsPlaying()
 	return Board.MarbleCount() > 1;
 }
 
-MarbleBoard* MarbleSolitare::SimulateMove(const MarbleBoard* InMarbleBoard, const Location& InStartLocation, const Direction& InDirection)
+vector<unique_ptr<MarbleBoard>> MarbleSolitare::SimulateMove(const vector<unique_ptr<MarbleBoard>> InMarbleBoard, const Location& InStartLocation, const Direction& InDirection)
 {
-	//PrintLocation(InStartLocation);
+	//MarbleSolitare::PrintLocation(InStartLocation);
 	//cout << " Jumps in direction ";
-	//PrintDirection(InDirection);
+	//MarbleSolitare::PrintDirection(InDirection);
 	//cout << endl;
 
-	MarbleBoard* new_board = new MarbleBoard();
+	vector<unique_ptr<MarbleBoard>> new_board = new MarbleBoard();
 	new_board->CopyBoard(InMarbleBoard);
 
 	// Find the start marble, the marble being jumped over, and the empty destination
@@ -143,7 +145,7 @@ Direction MarbleSolitare::GetDirection(const Location& InStart, const Location& 
 	return Direction::DirectionError;  // If neither column nor row changed
 }
 
-void MarbleSolitare::PrintDirection(const Direction& InDirection)
+void MarbleSolitare::MarbleSolitare::PrintDirection(const Direction& InDirection)
 {
 	cout << "Direction: ";
 	switch (InDirection)
@@ -167,7 +169,7 @@ void MarbleSolitare::PrintDirection(const Direction& InDirection)
 	}
 }
 
-void MarbleSolitare::PrintSlotState(const MarbleSlot& InMarbleSlot)
+void MarbleSolitare::MarbleSolitare::PrintSlotState(const MarbleSlot& InMarbleSlot)
 {
 	switch (InMarbleSlot)
 	{
@@ -188,12 +190,12 @@ void MarbleSolitare::PrintSlotState(const MarbleSlot& InMarbleSlot)
 	}
 }
 
-void MarbleSolitare::PrintLocation(const Location& InLocation)
+void MarbleSolitare::MarbleSolitare::PrintLocation(const Location& InLocation)
 {
 	cout << "Location:" << InLocation.Column << InLocation.Row;
 }
 
-void MarbleSolitare::PrintTile(const Tile& InTitle)
+void MarbleSolitare::MarbleSolitare::PrintTile(const Tile& InTitle)
 {
 	switch (InTitle.GetSlotState())
 	{
@@ -221,12 +223,12 @@ void MarbleSolitare::PrintTile(const Tile& InTitle)
 	}
 }
 
-void MarbleSolitare::PrintBoard(const MarbleBoard& InMarbleBoard)
+void MarbleSolitare::MarbleSolitare::PrintBoard(const MarbleBoard& InMarbleBoard)
 {
-	// Print the board with row numbers
+	// MarbleSolitare::Print the board with row numbers
 	for (auto tile : InMarbleBoard.GetTiles())
 	{
-		PrintTile(*tile);
+		MarbleSolitare::PrintTile(*tile);
 	}
 	cout << endl;
 }
@@ -242,34 +244,34 @@ void MarbleSolitare::EmptyScreen()
 
 void MarbleSolitare::SimulateBFS()
 {
-	MarbleBoard* start_board = new MarbleBoard();
+	vector<unique_ptr<MarbleBoard>> start_board = new MarbleBoard();
 	start_board->GenerateBoard();
 	start_board->GenerateBoardPossibleJumpDirections();
 
-	//queue<MarbleBoard*> board_queue;  // Queue for BFS
+	//queue<vector<unique_ptr<MarbleBoard>>> board_queue;  // Queue for BFS
 	AddBoardToQueue(start_board);
 	int wins = 0;
 	int boards = 0;
 	int jumps = 0;
 	while (!BoardQueue.empty())
 	{
-		MarbleBoard* current_board = GetTopBoard();
+		vector<unique_ptr<MarbleBoard>> current_board = GetTopBoard();
 		boards++;
-		//PrintBoard(*current_board);
+		//MarbleSolitare::PrintBoard(*current_board);
 		// Collect statistics for the current board state
 		int marbleCount = current_board->MarbleCount();
 		cout << "Number of marbles remaining: " << marbleCount << endl;
 		cout << "Boards: " << boards << " Board left: " << BoardQueue.size() << endl;
 		cout << "Wins: " << wins << " Boards: " << boards << " Jumps " << jumps << endl;
 
-		//	current_board->PrintValidSelections();
+		//	current_board->MarbleSolitare::PrintValidSelections();
 
 		// Generate possible moves from the current board state
 
 		auto moveable_marbles = current_board->GetMoveableMarbles();
-		for (auto tile : moveable_marbles)
+		for (Tile* tile : moveable_marbles)
 		{
-			for (const auto& direction : tile->GetPossibleJumpDirections())
+			for (const Direction& direction : tile->GetPossibleJumpDirections())
 			{
 				// Simulate the move and add the new board state to the queue
 				AddBoardToQueue(MarbleSolitare::SimulateMove(current_board, tile->GetGridLocation(), direction));
@@ -283,12 +285,12 @@ void MarbleSolitare::SimulateBFS()
 	cout << "Wins: " << wins << " Boards: " << boards << " Jumps " << jumps;
 }
 
-void MarbleSolitare::AddBoardToQueue(MarbleBoard* InMarbleBoard)
+void MarbleSolitare::AddBoardToQueue(vector<unique_ptr<MarbleBoard>> InMarbleBoard)
 {
 	//cout << "Attempting to add board to queue..." << std::endl;
 
 		// Check if the board is already in the visited boards
-	for (MarbleBoard* visited_board : VisitedBoards)
+	for (vector<unique_ptr<MarbleBoard>> visited_board : VisitedBoards)
 	{
 		if (visited_board->Equals(InMarbleBoard))
 		{
@@ -297,7 +299,7 @@ void MarbleSolitare::AddBoardToQueue(MarbleBoard* InMarbleBoard)
 		}
 	}
 
-	for (MarbleBoard* visited_board : BoardQueue)
+	for (vector<unique_ptr<MarbleBoard>> visited_board : BoardQueue)
 	{
 		if (visited_board->Equals(InMarbleBoard))
 		{
@@ -310,9 +312,9 @@ void MarbleSolitare::AddBoardToQueue(MarbleBoard* InMarbleBoard)
 	cout << "Added Board to queue. Boards left: " << BoardQueue.size() << endl;
 }
 
-MarbleBoard* MarbleSolitare::GetTopBoard()
+vector<unique_ptr<MarbleBoard>> MarbleSolitare::GetTopBoard()
 {
-	MarbleBoard* popped_board = BoardQueue.front();
+	vector<unique_ptr<MarbleBoard>> popped_board = BoardQueue.front();
 	BoardQueue.erase(BoardQueue.begin());
 	VisitedBoards.push_back(popped_board);
 	popped_board->GenerateBoardPossibleJumpDirections();

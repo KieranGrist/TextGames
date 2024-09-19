@@ -1,5 +1,5 @@
 #pragma once
-#include "Location.h";
+#include "Location.h"
 
 class Tile
 {
