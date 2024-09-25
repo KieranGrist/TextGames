@@ -19,6 +19,50 @@ enum class SlotStatus
 	Marble
 };
 
+
+std::string DirectionToString(Direction InDirection)
+{
+	switch (InDirection)
+	{
+	case Direction::Error:
+		break;
+	case Direction::Up:
+		return "Up";
+		break;
+	case Direction::Right:
+		return "Right";
+		break;
+	case Direction::Down:
+		return "Down";
+		break;
+	case Direction::Left:
+		return "Left";
+		break;
+	default:
+		break;
+	}
+	return "";
+}
+
+std::string StatusToString(SlotStatus InStatus)
+{
+	switch (InStatus)
+	{
+	case SlotStatus::Blocked:
+		return "Blocked";
+		break;
+	case SlotStatus::Empty:
+		return "Empty";
+		break;
+	case SlotStatus::Marble:
+		return "Marble";
+		break;
+	default:
+		break;
+	}
+	return "";
+}
+
 // Loction struct
 struct Location
 {
@@ -28,7 +72,7 @@ struct Location
 
 	std::string ToString() const
 	{
-		return "Location: " + std::to_string(X) + ", " + std::to_string(Y);
+		return  std::to_string(X) + ", " + std::to_string(Y);
 	}
 
 	// Comparison operators for map keys
@@ -56,22 +100,44 @@ struct Move
 		StartingLocation(InStartingLocation),
 		MoveDirection(InMoveDirection)
 	{}
+	void PrintMove() const
+	{
+		std::cout << "Starting Board Index " << BoardIndex << " Location: " << StartingLocation.ToString()
+			<< " Direction: " << DirectionToString(MoveDirection);
+	}
+
+	std::string HashMove() const
+	{
+		return  std::to_string(BoardIndex) + " " + StartingLocation.ToString()
+			+ " " + DirectionToString(MoveDirection);
+	}
 
 	int BoardIndex;
 	Location StartingLocation;
 	Direction MoveDirection;
 };
 
+struct Path
+{
+	std::string HashPath() const
+	{
+		std::string path_string;
+		for (auto move : Moves)
+		{
+			path_string += move.HashMove();
+		}
+	}
+	std::vector<Move> Moves;
+};
 
 class Board
 {
 public:
 	int Index = 0;
-	bool Explored = false;
 	static int NextIndex;
 	// Define the standard English Marble Solitaire board (7x7 grid) using std::map
 	std::map<Location, SlotStatus> BoardArray;
-	std::vector<Move> Moves;
+	Path BoardPath;
 
 	Board()
 	{
@@ -91,56 +157,13 @@ public:
 	Board(const Board* InOther)
 	{
 		BoardArray = InOther->BoardArray;
-		Moves = InOther->Moves;
+		BoardPath = InOther->BoardPath;
 		Index = InOther->Index;
 	}
 	void UpdateIndex()
 	{
 		NextIndex++;
 		Index = NextIndex;
-	}
-
-	std::string DirectionToString(Direction InDirection) const
-	{
-		switch (InDirection)
-		{
-		case Direction::Error:
-			break;
-		case Direction::Up:
-			return "Up";
-			break;
-		case Direction::Right:
-			return "Right";
-			break;
-		case Direction::Down:
-			return "Down";
-			break;
-		case Direction::Left:
-			return "Left";
-			break;
-		default:
-			break;
-		}
-		return "";
-	}
-
-	std::string StatusToString(SlotStatus InStatus) const
-	{
-		switch (InStatus)
-		{
-		case SlotStatus::Blocked:
-			return "Blocked";
-			break;
-		case SlotStatus::Empty:
-			return "Empty";
-			break;
-		case SlotStatus::Marble:
-			return "Marble";
-			break;
-		default:
-			break;
-		}
-		return "";
 	}
 
 	void PrintBoard()
@@ -185,17 +208,12 @@ public:
 		return CountMarbles() == 1;
 	}
 
+	bool HasNoValidMoves()
+	{
 
-};
+	}
 
-class SolitareSimulation
-{
-public:
-	std::vector<Board*> WinningBoards;
-	std::vector<Board*> BoardQueue;
-	std::vector<Board*> CreatedBoards;
-
-	static void ProcessMove(const Move& InMove, Location& OutStartLocation, Location& OutMarbleLocation, Location& OutEmptyLocation)
+	void GetLocationsFromMove(const Move& InMove, Location& OutStartLocation, Location& OutMarbleLocation, Location& OutEmptyLocation) const
 	{
 		OutStartLocation = InMove.StartingLocation;
 		OutMarbleLocation = InMove.StartingLocation;
@@ -225,91 +243,93 @@ public:
 		}
 	}
 
-	Board* FindOrCreateBoard(const Board* InOriginalBoard, const Move& InMove)
+	bool IsMoveValid(const Move& InMove) const
 	{
-	
 		Location start_location;
 		Location marble_location;
 		Location empty_location;
-		ProcessMove(InMove, start_location, marble_location, empty_location);
-		
-		Board search_board = Board(InOriginalBoard);
-		search_board.BoardArray[start_location] = SlotStatus::Empty;
-		search_board.BoardArray[marble_location] = SlotStatus::Empty;
-		search_board.BoardArray[empty_location] = SlotStatus::Marble;
-		auto predicate = [search_board](Board* current_board) 
-		{
-			return search_board.BoardArray == current_board->BoardArray;
-		};
+		GetLocationsFromMove(InMove, start_location, marble_location, empty_location);
+		// Find the locations in the board
+		auto starting_marble = BoardArray.find(start_location);
+		auto jump_marble = BoardArray.find(marble_location);
+		auto empty_slot = BoardArray.find(empty_location);
 
-		auto it = std::find_if(CreatedBoards.begin(), CreatedBoards.end(), predicate);
-		if (it != CreatedBoards.end())
-			return *it;
-	
-		Board* out_board = new Board(search_board);
-		out_board->UpdateIndex();
+		// Check if the locations exist and are valid
+		if (starting_marble == BoardArray.end() || jump_marble == BoardArray.end() || empty_slot == BoardArray.end())
+			return;
 
-		CreatedBoards.push_back(out_board);
-		return out_board;
+		if (starting_marble->second != SlotStatus::Marble || jump_marble->second != SlotStatus::Marble || empty_slot->second != SlotStatus::Empty)
+			return;
 	}
 
 	// Function to make a move
-	Board* Jump(const Board* InBoard, const Move& InMove)
+	void Jump(const Move& InMove)
 	{
-		//std::cout << "Attempting move from " << InLocation.ToString() << " in direction " << DirectionToString(InDirection) << std::endl;
+		if (!IsMoveValid(InMove))
+			return;
 		Location start_location;
 		Location marble_location;
 		Location empty_location;
-		ProcessMove(InMove, start_location, marble_location, empty_location);
-
-		// Find the locations in the board
-		auto starting_marble = InBoard->BoardArray.find(start_location);
-		auto jump_marble = InBoard->BoardArray.find(marble_location);
-		auto empty_slot = InBoard->BoardArray.find(empty_location);
-
-		// Check if the locations exist and are valid
-		if (starting_marble == InBoard->BoardArray.end() || jump_marble == InBoard->BoardArray.end() || empty_slot == InBoard->BoardArray.end())
-			return nullptr;
-
-		if (starting_marble->second != SlotStatus::Marble || jump_marble->second != SlotStatus::Marble || empty_slot->second != SlotStatus::Empty)
-			return nullptr;
-
-		return FindOrCreateBoard(InBoard, InMove);
+		GetLocationsFromMove(InMove, start_location, marble_location, empty_location);
+		BoardArray[start_location] = SlotStatus::Empty;
+		BoardArray[marble_location] = SlotStatus::Empty;
+		BoardArray[empty_location] = SlotStatus::Marble;
+		return;
 	}
+};
 
-	void SimulateBFS()
-	{
-		Board* FirstBoard = new Board();
-		CreatedBoards.push_back(FirstBoard);
-		BoardQueue.push_back(FirstBoard);
-		while (BoardQueue.empty() == false)
-		{
-			Board* popped_board = BoardQueue.front();
-			BoardQueue.erase(BoardQueue.begin());
-			ExploreMoves(popped_board);
-		}
-	}
+class SolitareSimulation
+{
+public:
+	std::vector<Board*> WinningBoards;
+	std::vector<Board*> BoardQueue;
+	std::vector<Path> SearchedPaths;
+
 
 	void SimulatedDFS()
 	{
 		Board* FirstBoard = new Board();
-		CreatedBoards.push_back(FirstBoard);
-		BoardQueue.push_back(FirstBoard);
-		while (BoardQueue.empty() == false)
-		{
-			Board* popped_board = BoardQueue.back(); // Get the top board
-			BoardQueue.pop_back();
-			ExploreMoves(popped_board);
-		}
+		ExploreMoves(FirstBoard);
 	}
 
+	bool SearchExistingPath(const Path& InPath) const
+	{
+		for (auto path : SearchedPaths)
+		{
+
+			/*
+				okay so we have a path, we know a path is a tracker of moves the sim has made, D4 Left etc. 
+				we are taking in the current search path, or what is trying to be iterated on. 
+				if we have already searched this node to completion we should return true and avoid going over the same ground.
+			*/
+		}
+		// How I imagine this works is like so 
+		/*
+			move 1 
+			go through first available move
+			move 2
+			move 3 
+			... 
+			stop when winner or blocked
+			... 
+			push to searched paths 
+			...
+			searched paths searches for the current move and board state
+			... 
+			if it finds a path that matches the begining and can complete the end it returns true 
+			...
+
+		*/
+		
+	}
+
+	void HandleExistingPath()
+	{
+
+	}
 
 	void ExploreMoves(Board* InCurrentBoard)
 	{
-		if (InCurrentBoard->Explored)
-			return;
-		InCurrentBoard->Explored = true;
-		std::cout << "------------------" << std::endl;
 		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << std::endl;
 		//CurrentBoard.PrintBoard();
 
@@ -317,8 +337,12 @@ public:
 		if (InCurrentBoard->IsWinningState())
 		{
 			WinningBoards.push_back(InCurrentBoard);
-			std::cout << "Winning state found! back tracking" << std::endl;
-			std::cout << "------------------" << std::endl;
+			SearchedPaths.push_back(InCurrentBoard->BoardPath);
+			return;
+		}
+		if (InCurrentBoard->HasNoValidMoves())
+		{
+			SearchedPaths.push_back(InCurrentBoard->BoardPath);
 			return;
 		}
 
@@ -329,23 +353,35 @@ public:
 			for (auto direction : { Direction::Up,	Direction::Right, Direction::Down, Direction::Left })
 			{
 				Move next_move(InCurrentBoard->Index, marble_pair.first, direction);
-				if (Board* copied_board = Jump(InCurrentBoard, next_move))
+				if (!InCurrentBoard->IsMoveValid(next_move))
+					continue;
+
+				if (SearchExistingPath())
 				{
-					copied_board->Moves.push_back(next_move);
-					std::cout << std::endl;
-					std::cout << "Board: " << InCurrentBoard->Index << " Has " << InCurrentBoard->CountMarbles() << " Marbles Left" << std::endl;
-					InCurrentBoard->PrintBoard();
-					std::cout << "Move made from " << marble_pair.first.ToString() << " in direction " << copied_board->DirectionToString(direction) << std::endl;
-					std::cout << "Board: " << copied_board->Index << " Has " << copied_board->CountMarbles() << " Marbles Left" << std::endl;
-					copied_board->PrintBoard();
-					if (copied_board->Explored == false)
-						BoardQueue.push_back(copied_board);
-					//ExploreMoves(copied_board);	
+					return;
 				}
+
+				Board* copied_board = new Board(InCurrentBoard);
+				copied_board->Jump(next_move);
+				copied_board->BoardPath.Moves.push_back(next_move);
+				ExploreMoves(copied_board);
 			}
 		}
-		std::cout << "------------------" << std::endl;
-		std::cout << std::endl << std::endl;
+	}
+
+	void PrintWinningBoards()
+	{
+		for (auto board : WinningBoards)
+		{
+			Board* display_board = new Board();
+			for (const Move& move : board->BoardPath.Moves)
+			{
+				display_board->Jump(move);
+				std::cout << "Move: ";
+				move.PrintMove();
+				display_board->PrintBoard();
+			}
+		}
 	}
 };
 
@@ -356,6 +392,8 @@ int main()
 	SolitareSimulation solitare;
 
 	solitare.SimulatedDFS();
+
+	solitare.PrintWinningBoards();
 
 	return 0;  // Return 0 to indicate successful execution
 }
