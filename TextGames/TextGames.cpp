@@ -282,10 +282,11 @@ public:
 
 		// Check if the locations exist and are valid
 		if (starting_marble == BoardArray.end() || jump_marble == BoardArray.end() || empty_slot == BoardArray.end())
-			return;
+			return false;
 
 		if (starting_marble->second != SlotStatus::Marble || jump_marble->second != SlotStatus::Marble || empty_slot->second != SlotStatus::Empty)
-			return;
+			return false;
+		return true;
 	}
 
 	// Function to make a move
@@ -300,7 +301,7 @@ public:
 		BoardArray[start_location] = SlotStatus::Empty;
 		BoardArray[marble_location] = SlotStatus::Empty;
 		BoardArray[empty_location] = SlotStatus::Marble;
-		return;
+		HashBoard();
 	}
 };
 
@@ -309,66 +310,52 @@ class SolitareSimulation
 public:
 	std::vector<Board*> WinningBoards;
 	std::vector<Board*> BoardQueue;
-	std::vector<Path> SearchedPaths;
-
+	std::unordered_map<std::string, Board*> ExploredBoards;
+	std::map<int, int> MarbleIterations;
+	void SimulateBFS()
+	{
+		BoardQueue.push_back(new Board());
+		while (BoardQueue.empty() == false)
+		{
+			Board* popped_board = BoardQueue.front();
+			BoardQueue.erase(BoardQueue.begin());
+			ExploreMoves(popped_board, false);
+		}
+	}
 
 	void SimulatedDFS()
 	{
-		Board* FirstBoard = new Board();
-		ExploreMoves(FirstBoard);
-	}
-
-	bool SearchExistingPath(const Path& InPath) const
-	{
-		for (auto path : SearchedPaths)
+		BoardQueue.push_back(new Board());
+		while (BoardQueue.empty() == false)
 		{
-
-			/*
-				okay so we have a path, we know a path is a tracker of moves the sim has made, D4 Left etc. 
-				we are taking in the current search path, or what is trying to be iterated on. 
-				if we have already searched this node to completion we should return true and avoid going over the same ground.
-			*/
+			Board* popped_board = BoardQueue.back(); // Get the top board
+			BoardQueue.pop_back();
+			ExploreMoves(popped_board, true);
 		}
-		// How I imagine this works is like so 
-		/*
-			move 1 
-			go through first available move
-			move 2
-			move 3 
-			... 
-			stop when winner or blocked
-			... 
-			push to searched paths 
-			...
-			searched paths searches for the current move and board state
-			... 
-			if it finds a path that matches the begining and can complete the end it returns true 
-			...
-
-		*/
-		
 	}
 
-	void HandleExistingPath()
+	void ExploreMoves(Board* InCurrentBoard, bool DFS)
 	{
+		MarbleIterations[InCurrentBoard->UpdateMarbleCount()]++;
+		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->UpdateMarbleCount()
+			<< " Iterations for marble amount "
+			<< MarbleIterations[InCurrentBoard->UpdateMarbleCount()]
+			<< std::endl;
 
-	}
-
-	void ExploreMoves(Board* InCurrentBoard)
-	{
-		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << std::endl;
 		//CurrentBoard.PrintBoard();
 
 		// Base case: check if it's a winning state
 		if (InCurrentBoard->IsWinningState())
 		{
+			if (DFS)
+				ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
 			WinningBoards.push_back(InCurrentBoard);
-			SearchedPaths.push_back(InCurrentBoard->BoardPath);
 			return;
 		}
 		if (InCurrentBoard->HasNoValidMoves())
 		{
-			SearchedPaths.push_back(InCurrentBoard->BoardPath);
+			if (DFS)
+				ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
 			return;
 		}
 
@@ -382,30 +369,32 @@ public:
 				if (!InCurrentBoard->IsMoveValid(next_move))
 					continue;
 
-				if (SearchExistingPath())
-				{
-					return;
-				}
-
 				Board* copied_board = new Board(InCurrentBoard);
 				copied_board->Jump(next_move);
-				copied_board->BoardPath.Moves.push_back(next_move);
-				ExploreMoves(copied_board);
+				if (DFS && ExploredBoards.find(copied_board->Hash) != ExploredBoards.end())
+					continue;
+
+				copied_board->Moves.push_back(next_move);
+				copied_board->UpdateIndex();
+				//ExploreMoves(copied_board);
+				BoardQueue.push_back(copied_board);
 			}
 		}
+		if (DFS)
+			ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
 	}
 
 	void PrintWinningBoards()
 	{
 		for (auto board : WinningBoards)
 		{
-			Board* display_board = new Board();
-			for (const Move& move : board->BoardPath.Moves)
+			Board display_board;
+			for (const Move& move : board->Moves)
 			{
-				display_board->Jump(move);
+				display_board.Jump(move);
 				std::cout << "Move: ";
 				move.PrintMove();
-				display_board->PrintBoard();
+				display_board.PrintBoard();
 			}
 		}
 	}
@@ -417,7 +406,8 @@ int main()
 {
 	SolitareSimulation solitare;
 
-	solitare.SimulatedDFS();
+	solitare.SimulateBFS();
+	//solitare.SimulatedDFS();
 
 	solitare.PrintWinningBoards();
 
