@@ -2,6 +2,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 enum class Direction
 {
@@ -117,28 +118,22 @@ struct Move
 	Direction MoveDirection;
 };
 
-struct Path
-{
-	std::string HashPath() const
-	{
-		std::string path_string;
-		for (auto move : Moves)
-		{
-			path_string += move.HashMove();
-		}
-	}
-	std::vector<Move> Moves;
-};
-
 class Board
 {
 public:
 	int Index = 0;
+	int MarbleCount = 0;
 	static int NextIndex;
 	// Define the standard English Marble Solitaire board (7x7 grid) using std::map
 	std::map<Location, SlotStatus> BoardArray;
-	Path BoardPath;
+	std::vector<Move> Moves;
+	std::string Hash;
 
+	~Board()
+	{
+		Moves.clear();
+		BoardArray.clear();
+	}
 	Board()
 	{
 		BoardArray =
@@ -151,14 +146,25 @@ public:
 			{ Location(0, 5), SlotStatus::Blocked }, { Location(1, 5), SlotStatus::Blocked }, { Location(2, 5), SlotStatus::Marble}, { Location(3, 5), SlotStatus::Marble}, { Location(4, 5), SlotStatus::Marble}, { Location(5, 5), SlotStatus::Blocked }, { Location(6, 5), SlotStatus::Blocked },
 			{ Location(0, 6), SlotStatus::Blocked }, { Location(1, 6), SlotStatus::Blocked }, { Location(2, 6), SlotStatus::Marble}, { Location(3, 6), SlotStatus::Marble}, { Location(4, 6), SlotStatus::Marble}, { Location(5, 6), SlotStatus::Blocked }, { Location(6, 6), SlotStatus::Blocked }
 		};
+		HashBoard();
 	}
 
 	// Copy constructor
 	Board(const Board* InOther)
 	{
 		BoardArray = InOther->BoardArray;
-		BoardPath = InOther->BoardPath;
+		Moves = InOther->Moves;
 		Index = InOther->Index;
+		HashBoard();
+	}
+
+	// Copy constructor
+	Board(const Board& InOther)
+	{
+		BoardArray = InOther.BoardArray;
+		Moves = InOther.Moves;
+		Index = InOther.Index;
+		HashBoard();
 	}
 	void UpdateIndex()
 	{
@@ -193,24 +199,44 @@ public:
 		}
 	}
 
-	int CountMarbles() const
+	void HashBoard()
 	{
-		int marble_count = 0;
+		Hash ="";
+		for (auto marble_pair : BoardArray)
+		{
+			Hash += marble_pair.first.ToString() + StatusToString(marble_pair.second) + " ";
+		}
+	}
+
+	int UpdateMarbleCount()
+	{
+		MarbleCount = 0;
 		for (auto marble_pair : BoardArray)
 			if (marble_pair.second == SlotStatus::Marble)
-				marble_count++;
-		return marble_count;
+				MarbleCount++;
+		return MarbleCount;
 	}
 
 	// Function to check if the board is in a winning state (1 marble left in the center)
 	bool IsWinningState()
 	{
-		return CountMarbles() == 1;
+		return UpdateMarbleCount() == 1;
 	}
 
-	bool HasNoValidMoves()
+	bool HasNoValidMoves() const
 	{
-
+		for (auto marble_pair : BoardArray)
+		{
+			if (marble_pair.second != SlotStatus::Marble)
+				continue;
+			for (auto direction : { Direction::Up,	Direction::Right, Direction::Down, Direction::Left })
+			{
+				Move next_move(Index, marble_pair.first, direction);
+				if (IsMoveValid(next_move))
+					return false;
+			}
+		}
+		return true;
 	}
 
 	void GetLocationsFromMove(const Move& InMove, Location& OutStartLocation, Location& OutMarbleLocation, Location& OutEmptyLocation) const
