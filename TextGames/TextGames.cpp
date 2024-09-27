@@ -15,6 +15,7 @@ enum class Direction
 
 enum class SlotStatus
 {
+	Error,
 	Blocked,
 	Empty,
 	Marble
@@ -64,6 +65,30 @@ std::string StatusToString(SlotStatus InStatus)
 	return "";
 }
 
+SlotStatus StringToStatus(const std::string& InString)
+{
+	if (InString == "Blocked")
+		return SlotStatus::Blocked;
+	if (InString == "Empty")
+		return SlotStatus::Empty;
+	if (InString == "Marble")
+		return SlotStatus::Marble;
+	return SlotStatus::Error;
+}
+
+Direction StringToDirection(const std::string& InString) 
+{
+	if (InString == "Up")
+		return Direction::Up;
+	if (InString == "Right")
+		return Direction::Right;
+	if (InString == "Down")
+		return Direction::Down;
+	if (InString == "Left")
+		return Direction::Left;
+	return Direction::Error;
+}
+
 // Loction struct
 struct Location
 {
@@ -71,9 +96,22 @@ struct Location
 
 	Location(int InX, int InY) : X(InX), Y(InY) {}
 
+	// Constructor that takes a string in the format "X,Y"
+	Location(const std::string& InString)
+	{
+		// Find the position of the comma
+		size_t comma_pos = InString.find(',');
+
+		// Extract the substring before the comma (X value)
+		X = std::stoi(InString.substr(0, comma_pos));
+
+		// Extract the substring after the comma (Y value)
+		Y = std::stoi(InString.substr(comma_pos + 1));
+	}
+
 	std::string ToString() const
 	{
-		return  std::to_string(X) + ", " + std::to_string(Y);
+		return std::to_string(X) + "," + std::to_string(Y);
 	}
 
 	// Comparison operators for map keys
@@ -94,23 +132,27 @@ struct Location
 // Loction
 struct Move
 {
+	Move()
+	{
+		BoardIndex = -1;
+		StartingLocation = Location();
+		MoveDirection = Direction::Error;
+	}
+
 	Move(int InBoardIndex,
 		Location InStartingLocation,
 		Direction InMoveDirection) :
 		BoardIndex(InBoardIndex),
 		StartingLocation(InStartingLocation),
 		MoveDirection(InMoveDirection)
-	{}
+	{
+	
+	}
 	void PrintMove() const
 	{
-		std::cout << "Starting Board Index " << BoardIndex << " Location: " << StartingLocation.ToString()
+		std::cout << "Starting Board Index: " << BoardIndex
+			<< " Location: " << StartingLocation.ToString()
 			<< " Direction: " << DirectionToString(MoveDirection);
-	}
-
-	std::string HashMove() const
-	{
-		return  std::to_string(BoardIndex) + " " + StartingLocation.ToString()
-			+ " " + DirectionToString(MoveDirection);
 	}
 
 	int BoardIndex;
@@ -198,13 +240,119 @@ public:
 			std::cout << std::endl;  // Newline after each row
 		}
 	}
+	std::string SaveBoard()
+	{
+		HashBoard();
+		std::string save_data = "Board:" + Hash;
+		save_data += "~Board";
+		save_data += "Moves:";
+		for (auto move : Moves)
+		{
+			save_data += "{";
+			save_data += std::to_string(move.BoardIndex) + ";";
+			save_data += move.StartingLocation.ToString() + ";";
+			save_data += DirectionToString(move.MoveDirection) + ";";
+			save_data += "}";
+		}
+		save_data += "~Moves";
+		save_data += "Index:" + std::to_string(Index);
+		save_data += "~Index";
+		return save_data;
+	}
+
+	Board(const std::string& InBoardSave)
+	{
+		int board_start = InBoardSave.find("Board:") + 6;
+		int board_end = InBoardSave.find("~Board");
+		int moves_start = InBoardSave.find("Moves:") + 6;
+		int moves_end = InBoardSave.find("~Moves:");
+		int index_start = InBoardSave.find("Index:") + 6;
+		int index_end = InBoardSave.find("~Index");
+		std::string storage_string;
+		BoardArray.clear();
+		{
+			int fill_target = 0;
+			std::pair<Location, SlotStatus> marble_pair;
+			for (int i = board_start; i < board_end; i++)
+			{
+				char current_character = InBoardSave[i];
+				if (current_character == '{')
+					continue;
+				if (current_character == '}')
+				{
+					BoardArray[marble_pair.first] = marble_pair.second;
+					storage_string = "";
+					marble_pair = std::pair<Location, SlotStatus>();
+					fill_target = 0;
+					continue;
+				}
+
+				if (current_character == ';')
+				{
+					if (fill_target == 0)
+						marble_pair.first = Location(storage_string);
+					else if (fill_target == 1)
+						marble_pair.second = StringToStatus(storage_string);
+						fill_target++;
+					storage_string = "";
+					continue;
+				}
+				storage_string += current_character;
+			}
+		}
+		{		
+			storage_string = "";
+			int fill_target = 0;
+			Move created_move;
+			for (int i = moves_start; i < moves_start; i++)
+			{
+				char current_character = InBoardSave[i];
+				if (current_character == '{')
+					continue;
+				if (current_character == '}')
+				{
+					Moves.push_back(created_move);
+					storage_string = "";
+					created_move = Move();
+					fill_target = 0;
+					continue;
+				}
+				if (current_character == ';')
+				{
+					if (fill_target == 0)
+						created_move.BoardIndex = std::stoi(storage_string);
+					else if (fill_target == 1)
+						created_move.StartingLocation = Location(storage_string);
+					else if (fill_target == 2)
+						created_move.MoveDirection = StringToDirection(storage_string);
+					storage_string = "";
+					fill_target++;
+					continue;
+				}
+				storage_string += current_character;
+			}
+		}
+
+		{
+			storage_string = "";
+			for (int i = index_start; i < index_end; i++)
+			{
+				char current_character = InBoardSave[i];
+				storage_string += current_character;
+			}
+			Index = std::stoi(storage_string);
+		}
+	}
 
 	void HashBoard()
 	{
-		Hash ="";
-		for (auto marble_pair : BoardArray)
+		Hash = "";
+		for (std::pair<Location, SlotStatus> marble_pair : BoardArray)
 		{
-			Hash += marble_pair.first.ToString() + StatusToString(marble_pair.second) + " ";
+			Hash += "{";
+			Hash += marble_pair.first.ToString() + ";";
+			Hash += StatusToString(marble_pair.second) + ";";
+			Hash += "}";
 		}
 	}
 
@@ -309,15 +457,15 @@ class SolitareSimulation
 {
 public:
 	std::vector<Board*> WinningBoards;
-	std::vector<Board*> BoardQueue;
+	std::vector<std::string> BoardQueue;
 	std::unordered_map<std::string, Board*> ExploredBoards;
 	std::map<int, int> MarbleIterations;
 	void SimulateBFS()
 	{
-		BoardQueue.push_back(new Board());
+		BoardQueue.push_back(Board().SaveBoard());
 		while (BoardQueue.empty() == false)
 		{
-			Board* popped_board = BoardQueue.front();
+			Board* popped_board = new Board(BoardQueue.front());
 			BoardQueue.erase(BoardQueue.begin());
 			ExploreMoves(popped_board, false);
 		}
@@ -325,10 +473,11 @@ public:
 
 	void SimulatedDFS()
 	{
-		BoardQueue.push_back(new Board());
+		BoardQueue.push_back(Board().SaveBoard());
 		while (BoardQueue.empty() == false)
 		{
-			Board* popped_board = BoardQueue.back(); // Get the top board
+			Board* popped_board = new Board(BoardQueue.front());
+			popped_board->SaveBoard();
 			BoardQueue.pop_back();
 			ExploreMoves(popped_board, true);
 		}
@@ -377,7 +526,7 @@ public:
 				copied_board->Moves.push_back(next_move);
 				copied_board->UpdateIndex();
 				//ExploreMoves(copied_board);
-				BoardQueue.push_back(copied_board);
+				BoardQueue.push_back(copied_board->SaveBoard());
 			}
 		}
 		if (DFS)
