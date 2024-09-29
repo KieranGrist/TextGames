@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <fstream>
+#include <sstream>
 
 enum class Direction
 {
@@ -164,7 +166,7 @@ class Board
 {
 public:
 	int Index = 0;
-	int MarbleCount = 0;
+	int MarbleCount = 32;
 	static int NextIndex;
 	// Define the standard English Marble Solitaire board (7x7 grid) using std::map
 	std::map<Location, SlotStatus> BoardArray;
@@ -196,6 +198,7 @@ public:
 	{
 		BoardArray = InOther->BoardArray;
 		Moves = InOther->Moves;
+		MarbleCount = InOther->MarbleCount;
 		Index = InOther->Index;
 		HashBoard();
 	}
@@ -203,6 +206,7 @@ public:
 	// Copy constructor
 	Board(const Board& InOther)
 	{
+		MarbleCount = InOther.MarbleCount;
 		BoardArray = InOther.BoardArray;
 		Moves = InOther.Moves;
 		Index = InOther.Index;
@@ -240,79 +244,180 @@ public:
 			std::cout << std::endl;  // Newline after each row
 		}
 	}
-	std::string SaveBoard()
+
+	void SaveBoard(std::string& OutFileName) 
 	{
-		HashBoard();
-		std::string save_data = "Board:" + Hash;
-		save_data += "~Board";
-		save_data += "Moves:";
-		for (auto move : Moves)
+		OutFileName += "Board_";
+		OutFileName += std::to_string(Index);
+		OutFileName += ".txt";
+
+
+		std::ifstream in_file(OutFileName);
+		if (in_file.is_open())
 		{
-			save_data += "{";
-			save_data += std::to_string(move.BoardIndex) + ";";
-			save_data += move.StartingLocation.ToString() + ";";
-			save_data += DirectionToString(move.MoveDirection) + ";";
-			save_data += "}";
+			std::stringstream buffer;
+			buffer << in_file.rdbuf();  // Read the entire file content
+			std::string file_content = buffer.str();
+			
+			if (file_content.find("File end") != std::string::npos)
+			{
+				return;
+			}
 		}
-		save_data += "~Moves";
-		save_data += "Index:" + std::to_string(Index);
-		save_data += "~Index";
-		return save_data;
+
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+		// Loop through each Y coordinate (row) from 0 to 6 (7x7 grid)
+		out_file << "  ";
+		for (int y = 0; y < 7; ++y)
+			out_file << y << " ";
+		out_file << std::endl;
+		for (int y = 0; y < 7; ++y)
+		{
+			out_file << y << " ";
+			// Loop through each X coordinate (column) from 0 to 6
+			for (int x = 0; x < 7; ++x)
+			{
+				Location loc(x, y); // Create the location to check in the BoardArray
+
+				// Check the status of each slot
+				if (BoardArray[loc] == SlotStatus::Blocked)
+					out_file << "  ";  // Blocked spot
+				else if (BoardArray[loc] == SlotStatus::Empty)
+					out_file << "X ";  // Empty spot
+				else if (BoardArray[loc] == SlotStatus::Marble)
+					out_file << "O ";  // Marble present
+			}
+			out_file << std::endl;  // Newline after each row
+		}
+		
+
+		for (const auto& move : Moves)
+		{
+			out_file << "Starting Board Index: " << move.BoardIndex
+				<< " Location: " << move.StartingLocation.ToString()
+				<< " Direction: " << DirectionToString(move.MoveDirection) << std::endl;
+		}
+
+
+		out_file<<"Board" << std::endl;
+
+		for (std::pair<Location, SlotStatus> marble_pair : BoardArray)
+		{
+			out_file << "{" << std::endl;
+			out_file <<  marble_pair.first.ToString() << ";" << std::endl;
+			out_file <<  StatusToString(marble_pair.second) << ";" << std::endl;
+			out_file << "}" << std::endl;
+		}
+		out_file << "~Board" << std::endl;
+
+		out_file << "Moves" << std::endl;
+		for (const auto& move : Moves)
+		{
+			out_file << "{";
+				out_file << std::to_string(move.BoardIndex) << ";" << std::endl;
+				out_file << move.StartingLocation.ToString() << ";" << std::endl;
+				out_file << DirectionToString(move.MoveDirection) << ";" << std::endl;
+				out_file << "}" << std::endl;
+		}
+		out_file <<  "~Moves" << std::endl;
+
+		out_file <<  "Index" << std::endl;
+		out_file << std::to_string(Index) << std::endl;
+		out_file << "~Index" << std::endl;
+
+		out_file << "NextIndex" << std::endl;
+		out_file << std::to_string(Index) << std::endl;
+		out_file << "~NextIndex" << std::endl;
+
+		out_file <<  "MarbleCount" << std::endl;
+		out_file << std::to_string(MarbleCount) << std::endl;
+		out_file << "~MarbleCount" << std::endl;
+		out_file << "File end" << std::endl;
 	}
 
-	Board(const std::string& InBoardSave)
+	Board(const std::string& InFileName)
 	{
-		int board_start = InBoardSave.find("Board:") + 6;
-		int board_end = InBoardSave.find("~Board");
-		int moves_start = InBoardSave.find("Moves:") + 6;
-		int moves_end = InBoardSave.find("~Moves:");
-		int index_start = InBoardSave.find("Index:") + 6;
-		int index_end = InBoardSave.find("~Index");
-		std::string storage_string;
+		std::ifstream saved_board_file(InFileName);
+		std::string InBoardSave;
+		if (saved_board_file.is_open())
+		{
+			std::stringstream buffer;
+			buffer << saved_board_file.rdbuf();  // Read the entire file into the stringstream
+			InBoardSave = buffer.str();  // Save the content as a string
+
+			saved_board_file.close();
+			std::cout << "Board loaded from " << InFileName << std::endl;
+		}
+		else 
+		{
+			std::cerr << "Unable to open file for loading: " << InFileName << std::endl;
+			return;
+		}
+
+		// Extract substring ranges
+		auto extract_substring = [&](const std::string& start, const std::string& end) 
+			{
+			return InBoardSave.substr(InBoardSave.find(start) + start.length(),
+				InBoardSave.find(end) - (InBoardSave.find(start) + start.length()));
+			};
+
+		std::string board_str = extract_substring("Board", "~Board");
+		std::string moves_str = extract_substring("Moves", "~Moves");
+		std::string index_str = extract_substring("Index", "~Index");
+		std::string marble_str = extract_substring("MarbleCount", "~MarbleCount");
+
+		// Rebuild the board
 		BoardArray.clear();
 		{
-			int fill_target = 0;
 			std::pair<Location, SlotStatus> marble_pair;
-			for (int i = board_start; i < board_end; i++)
+			std::string storage_string;
+			int fill_target = 0;
+
+			for (char current_character : board_str)
 			{
-				char current_character = InBoardSave[i];
-				if (current_character == '{')
+				if (current_character == '\n')
 					continue;
+				if (current_character == '{') continue;
 				if (current_character == '}')
 				{
 					BoardArray[marble_pair.first] = marble_pair.second;
-					storage_string = "";
-					marble_pair = std::pair<Location, SlotStatus>();
+					storage_string.clear();
+					marble_pair = {};
 					fill_target = 0;
 					continue;
 				}
-
 				if (current_character == ';')
 				{
 					if (fill_target == 0)
 						marble_pair.first = Location(storage_string);
 					else if (fill_target == 1)
 						marble_pair.second = StringToStatus(storage_string);
-						fill_target++;
-					storage_string = "";
+					fill_target++;
+					storage_string.clear();
 					continue;
 				}
 				storage_string += current_character;
 			}
 		}
-		{		
-			storage_string = "";
-			int fill_target = 0;
+
+		// Rebuild the moves
+		{
 			Move created_move;
-			for (int i = moves_start; i < moves_start; i++)
+			std::string storage_string;
+			int fill_target = 0;
+
+			for (char current_character : moves_str)
 			{
-				char current_character = InBoardSave[i];
-				if (current_character == '{')
+				if (current_character == '\n')
 					continue;
+				if (current_character == '{') continue;
 				if (current_character == '}')
 				{
 					Moves.push_back(created_move);
-					storage_string = "";
+					storage_string.clear();
 					created_move = Move();
 					fill_target = 0;
 					continue;
@@ -325,24 +430,19 @@ public:
 						created_move.StartingLocation = Location(storage_string);
 					else if (fill_target == 2)
 						created_move.MoveDirection = StringToDirection(storage_string);
-					storage_string = "";
 					fill_target++;
+					storage_string.clear();
 					continue;
 				}
 				storage_string += current_character;
 			}
 		}
 
-		{
-			storage_string = "";
-			for (int i = index_start; i < index_end; i++)
-			{
-				char current_character = InBoardSave[i];
-				storage_string += current_character;
-			}
-			Index = std::stoi(storage_string);
-		}
+		// Parse index and marble count
+		Index = std::stoi(index_str);
+		MarbleCount = std::stoi(marble_str);
 	}
+
 
 	void HashBoard()
 	{
@@ -356,19 +456,10 @@ public:
 		}
 	}
 
-	int UpdateMarbleCount()
-	{
-		MarbleCount = 0;
-		for (auto marble_pair : BoardArray)
-			if (marble_pair.second == SlotStatus::Marble)
-				MarbleCount++;
-		return MarbleCount;
-	}
-
 	// Function to check if the board is in a winning state (1 marble left in the center)
 	bool IsWinningState()
 	{
-		return UpdateMarbleCount() == 1;
+		return MarbleCount == 1;
 	}
 
 	bool HasNoValidMoves() const
@@ -449,46 +540,82 @@ public:
 		BoardArray[start_location] = SlotStatus::Empty;
 		BoardArray[marble_location] = SlotStatus::Empty;
 		BoardArray[empty_location] = SlotStatus::Marble;
-		HashBoard();
+		HashBoard(); 
+		MarbleCount--;
 	}
 };
 
 class SolitareSimulation
 {
 public:
-	std::vector<Board*> WinningBoards;
+	std::vector<std::string> WinningBoards;
 	std::vector<std::string> BoardQueue;
 	std::unordered_map<std::string, Board*> ExploredBoards;
 	std::map<int, int> MarbleIterations;
-	void SimulateBFS()
+	
+	void Simulate(bool DFS)
 	{
-		BoardQueue.push_back(Board().SaveBoard());
+		std::string file_name;
+		Board().SaveBoard(file_name);
+		BoardQueue.push_back(file_name);
+		LoadWinningBoards();
+		LoadIterations();
+		LoadQueue();
+		
 		while (BoardQueue.empty() == false)
 		{
-			Board* popped_board = new Board(BoardQueue.front());
-			BoardQueue.erase(BoardQueue.begin());
+			Board* popped_board ;
+			if (!DFS)
+			{
+				popped_board = new Board(BoardQueue.front());
+				BoardQueue.erase(BoardQueue.begin());
+			}
+			else
+			{
+				popped_board = new Board(BoardQueue.back());
+				BoardQueue.erase(BoardQueue.end() - 1);    
+			}
+
 			ExploreMoves(popped_board, false);
+			SaveWinningBoards();
+			SaveIterations();
+			SaveQueue();
 		}
 	}
 
-	void SimulatedDFS()
+	void LoadWinningBoards()
 	{
-		BoardQueue.push_back(Board().SaveBoard());
-		while (BoardQueue.empty() == false)
-		{
-			Board* popped_board = new Board(BoardQueue.front());
-			popped_board->SaveBoard();
-			BoardQueue.pop_back();
-			ExploreMoves(popped_board, true);
-		}
+
+	}
+
+	void LoadIterations()
+	{
+
+	}
+	void LoadQueue()
+	{
+
+	}
+	void SaveWinningBoards()
+	{
+
+	}
+
+	void SaveIterations()
+	{
+
+	}
+	void SaveQueue()
+	{
+
 	}
 
 	void ExploreMoves(Board* InCurrentBoard, bool DFS)
 	{
-		MarbleIterations[InCurrentBoard->UpdateMarbleCount()]++;
-		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->UpdateMarbleCount()
+		MarbleIterations[InCurrentBoard->MarbleCount]++;
+		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->MarbleCount
 			<< " Iterations for marble amount "
-			<< MarbleIterations[InCurrentBoard->UpdateMarbleCount()]
+			<< MarbleIterations[InCurrentBoard->MarbleCount]
 			<< std::endl;
 
 		//CurrentBoard.PrintBoard();
@@ -498,7 +625,7 @@ public:
 		{
 			if (DFS)
 				ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
-			WinningBoards.push_back(InCurrentBoard);
+			WinningBoards.push_back(InCurrentBoard->SaveBoard();
 			return;
 		}
 		if (InCurrentBoard->HasNoValidMoves())
@@ -526,7 +653,9 @@ public:
 				copied_board->Moves.push_back(next_move);
 				copied_board->UpdateIndex();
 				//ExploreMoves(copied_board);
-				BoardQueue.push_back(copied_board->SaveBoard());
+				std::string file_name;
+				copied_board->SaveBoard(file_name);
+				BoardQueue.push_back(file_name);
 			}
 		}
 		if (DFS)
@@ -555,7 +684,7 @@ int main()
 {
 	SolitareSimulation solitare;
 
-	solitare.SimulateBFS();
+	solitare.Simulate(false);
 	//solitare.SimulatedDFS();
 
 	solitare.PrintWinningBoards();
