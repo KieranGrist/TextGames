@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+#include <algorithm> // For std::find
 
 enum class Direction
 {
@@ -22,8 +24,6 @@ enum class SlotStatus
 	Empty,
 	Marble
 };
-
-#include <algorithm> // For std::find
 
 template <typename T>
 class TArray : public std::vector<T>
@@ -267,9 +267,11 @@ public:
 	}
 
 	const std::string SaveBoard()
-	{
-		std::string OutFileName;
-		OutFileName += "Board_";
+	{   // Create a folder named "Boards" if it doesn't exist
+		std::string folderName = "Boards";
+		std::filesystem::create_directory(folderName);
+
+		OutFileName += +"/Board_";
 		OutFileName += std::to_string(Index);
 		OutFileName += ".txt";
 
