@@ -23,6 +23,23 @@ enum class SlotStatus
 	Marble
 };
 
+#include <algorithm> // For std::find
+
+template <typename T>
+class TArray : public std::vector<T>
+{
+public:
+	// Default constructor
+	TArray() : std::vector<T>() {}
+
+	// Constructor that forwards arguments to std::vector's constructor
+	TArray(std::initializer_list<T> init) : std::vector<T>(init) {}
+
+	bool Contains(const T& value)
+	{
+		return std::find(vec.begin(), vec.end(), value) != vec.end();
+	}
+};
 
 std::string DirectionToString(Direction InDirection)
 {
@@ -245,12 +262,18 @@ public:
 		}
 	}
 
-	void SaveBoard(std::string& OutFileName) 
+	static const std::ifstream& GetFileStream(const std::string InFileName)
 	{
+		std::ifstream in_file(InFileName);
+		return in_file;
+	}
+
+	const std::string& SaveBoard()
+	{
+		std::string OutFileName;
 		OutFileName += "Board_";
 		OutFileName += std::to_string(Index);
 		OutFileName += ".txt";
-
 
 		std::ifstream in_file(OutFileName);
 		if (in_file.is_open())
@@ -300,7 +323,6 @@ public:
 				<< " Location: " << move.StartingLocation.ToString()
 				<< " Direction: " << DirectionToString(move.MoveDirection) << std::endl;
 		}
-
 
 		out_file<<"Board" << std::endl;
 
@@ -443,7 +465,6 @@ public:
 		MarbleCount = std::stoi(marble_str);
 	}
 
-
 	void HashBoard()
 	{
 		Hash = "";
@@ -548,16 +569,14 @@ public:
 class SolitareSimulation
 {
 public:
-	std::vector<std::string> WinningBoards;
-	std::vector<std::string> BoardQueue;
-	std::unordered_map<std::string, Board*> ExploredBoards;
+	TArray<std::string> WinningBoards;
+	TArray<std::string> BoardQueue;
+	TArray<std::string> ExploredBoards;
 	std::map<int, int> MarbleIterations;
 	
 	void Simulate(bool DFS)
 	{
-		std::string file_name;
-		Board().SaveBoard(file_name);
-		BoardQueue.push_back(file_name);
+		BoardQueue.push_back(Board().SaveBoard());
 		LoadWinningBoards();
 		LoadIterations();
 		LoadQueue();
@@ -585,29 +604,192 @@ public:
 
 	void LoadWinningBoards()
 	{
+		std::string OutFileName;
+		OutFileName += "WinningBoards";
+		OutFileName += ".txt";
+		std::ifstream saved_board_file(OutFileName);
+		std::string InBoardSave;
+		if (saved_board_file.is_open())
+		{
+			std::stringstream buffer;
+			buffer << saved_board_file.rdbuf();  // Read the entire file into the stringstream
+			InBoardSave = buffer.str();  // Save the content as a string
 
+			saved_board_file.close();
+			std::cout << "Board loaded from " << OutFileName << std::endl;
+		}
+		else
+		{
+			std::cerr << "Unable to open file for loading: " << OutFileName << std::endl;
+			return;
+		}
+
+		// Extract substring ranges
+		auto extract_substring = [&](const std::string& start, const std::string& end)
+			{
+				return InBoardSave.substr(InBoardSave.find(start) + start.length(),
+					InBoardSave.find(end) - (InBoardSave.find(start) + start.length()));
+			};
+
+		std::string winning_boards_str = extract_substring("WinningBoards", "~WinningBoards");
+			std::string storage_string;
+
+			for (char current_character : winning_boards_str)
+			{
+				if (current_character == '\n')
+					continue;
+				if (current_character == '{') continue;
+				if (current_character == '}')
+				{
+					WinningBoards.push_back(storage_string);
+					storage_string = "";
+					continue;
+				}
+				if (current_character == ';')
+					continue;
+				storage_string += current_character;
+			}
 	}
-
-	void LoadIterations()
+	void LoadBoardQueue()
 	{
 
 	}
-	void LoadQueue()
+
+	void LoadExploredBoards()
 	{
 
 	}
+
+	void LoadMarbleIterations()
+	{
+
+	}
+
+
 	void SaveWinningBoards()
 	{
+		std::string OutFileName;
+		OutFileName += "WinningBoards";
+		OutFileName += ".txt";
 
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+
+		for (const std::string& winning_board : WinningBoards)
+		{
+			out_file << winning_board << std::endl;
+
+			Board display_board;
+			Board loaded_winning_board = Board(winning_board);
+			for (const Move& move : loaded_winning_board.Moves)
+			{
+				display_board.Jump(move);
+				// Loop through each Y coordinate (row) from 0 to 6 (7x7 grid)
+				out_file << "  ";
+				for (int y = 0; y < 7; ++y)
+					out_file << y << " ";
+				out_file << std::endl;
+				for (int y = 0; y < 7; ++y)
+				{
+					out_file << y << " ";
+					// Loop through each X coordinate (column) from 0 to 6
+					for (int x = 0; x < 7; ++x)
+					{
+						Location loc(x, y); // Create the location to check in the BoardArray
+
+						// Check the status of each slot
+						if (loaded_winning_board.BoardArray[loc] == SlotStatus::Blocked)
+							out_file << "  ";  // Blocked spot
+						else if (loaded_winning_board.BoardArray[loc] == SlotStatus::Empty)
+							out_file << "X ";  // Empty spot
+						else if (loaded_winning_board.BoardArray[loc] == SlotStatus::Marble)
+							out_file << "O ";  // Marble present
+					}
+					out_file << std::endl;  // Newline after each row
+				}
+
+
+				for (const auto& move : loaded_winning_board.Moves)
+				{
+					out_file << "Starting Board Index: " << move.BoardIndex
+						<< " Location: " << move.StartingLocation.ToString()
+						<< " Direction: " << DirectionToString(move.MoveDirection) << std::endl;
+				}
+			}
+		}
+		
+		out_file << "Winning Boards" << std::endl;
+		for (const std::string& winning_board : WinningBoards)
+		{
+			out_file << "{" << std::endl;
+			out_file << winning_board << std::endl;
+			out_file << "}" << std::endl;
+		}
+		out_file << "~Winning Boards" << std::endl;
 	}
 
 	void SaveIterations()
 	{
+		std::string OutFileName;
+		OutFileName += "MarbleIterations";
+		OutFileName += ".txt";
 
+
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+		out_file << "MarbleIterations" << std::endl;
+		for (auto marble_iterations : MarbleIterations)
+		{
+			out_file << "{" << std::endl;
+			out_file << std::to_string(marble_iterations.first) << ";" << std::endl;
+			out_file << std::to_string(marble_iterations.second) << ";" << std::endl;
+			out_file << "}" << std::endl;
+		}
+		out_file << "~MarbleIterations" << std::endl;
 	}
-	void SaveQueue()
-	{
 
+	void SaveBoardQueue()
+	{
+		std::string OutFileName;
+		OutFileName += "BoardQueue";
+		OutFileName += ".txt";
+
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+		out_file << "BoardQueue" << std::endl;
+		for (const std::string& member : BoardQueue)
+		{
+			out_file << "{" << std::endl;
+			out_file << member << std::endl; 
+			out_file << "}" << std::endl;
+		}
+		out_file << "~BoardQueue" << std::endl;
+	}
+
+	void SaveExploredBoards()
+	{
+		std::string OutFileName;
+		OutFileName += "ExploredBoards";
+		OutFileName += ".txt";
+
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+		out_file << "ExploredBoards" << std::endl;
+		for (const std::string& member : ExploredBoards)
+		{
+			out_file << "{" << std::endl;
+			out_file << member << std::endl;
+			out_file << "}" << std::endl;
+		}
+		out_file << "~ExploredBoards" << std::endl;
 	}
 
 	void ExploreMoves(Board* InCurrentBoard, bool DFS)
@@ -624,14 +806,14 @@ public:
 		if (InCurrentBoard->IsWinningState())
 		{
 			if (DFS)
-				ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
-			WinningBoards.push_back(InCurrentBoard->SaveBoard();
+				ExploredBoards.push_back(InCurrentBoard->SaveBoard());
+			BoardQueue.push_back(InCurrentBoard->SaveBoard());
 			return;
 		}
 		if (InCurrentBoard->HasNoValidMoves())
 		{
 			if (DFS)
-				ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
+				ExploredBoards.push_back(InCurrentBoard->SaveBoard());
 			return;
 		}
 
@@ -647,27 +829,27 @@ public:
 
 				Board* copied_board = new Board(InCurrentBoard);
 				copied_board->Jump(next_move);
-				if (DFS && ExploredBoards.find(copied_board->Hash) != ExploredBoards.end())
+				if (DFS && ExploredBoards.Contains(copied_board->Hash))
 					continue;
 
 				copied_board->Moves.push_back(next_move);
 				copied_board->UpdateIndex();
 				//ExploreMoves(copied_board);
-				std::string file_name;
-				copied_board->SaveBoard(file_name);
-				BoardQueue.push_back(file_name);
+				BoardQueue.push_back(copied_board->SaveBoard());
 			}
 		}
 		if (DFS)
-			ExploredBoards[InCurrentBoard->Hash] = InCurrentBoard;
+			ExploredBoards.push_back(InCurrentBoard->SaveBoard());
 	}
 
 	void PrintWinningBoards()
 	{
 		for (auto board : WinningBoards)
 		{
-			Board display_board;
-			for (const Move& move : board->Moves)
+			std::cout << "Printing Moves for board: " << board << std::endl;
+			Board display_board;			
+			const Board loaded_winning_board = Board(board);
+			for (const Move& move : loaded_winning_board.Moves)
 			{
 				display_board.Jump(move);
 				std::cout << "Move: ";
