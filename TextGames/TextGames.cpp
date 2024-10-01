@@ -8,6 +8,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cstdlib>  // For std::atexit
+#include <iostream>
+#include <chrono>
+#include <thread>
 
 enum class Direction
 {
@@ -111,6 +115,8 @@ Direction StringToDirection(const std::string& InString)
 	return Direction::Error;
 }
 
+int NextIndex = 0;
+
 // Loction struct
 struct Location
 {
@@ -187,7 +193,7 @@ class Board
 public:
 	int Index = 0;
 	int MarbleCount = 32;
-	static int NextIndex;
+
 	// Define the standard English Marble Solitaire board (7x7 grid) using std::map
 	std::map<Location, SlotStatus> BoardArray;
 	std::vector<Move> Moves;
@@ -272,8 +278,11 @@ public:
 		std::string folderName = "Boards";
 		std::filesystem::create_directory(folderName);
 
-		OutFileName += +"/Board_";
-		OutFileName += std::to_string(Index);
+		// Construct the output file name with the folder path
+		std::string OutFileName;
+		OutFileName += folderName + "/";  // Add folder name
+		OutFileName += "Board_";           // Prefix
+		OutFileName += std::to_string(Index); // Index
 		OutFileName += ".txt";
 
 		std::ifstream in_file(OutFileName);
@@ -328,9 +337,9 @@ public:
 		out_file << "!Board" << std::endl;
 		for (std::pair<Location, SlotStatus> marble_pair : BoardArray)
 		{
-			out_file << "{" << std::endl;
-			out_file << marble_pair.first.ToString() << ";" << std::endl;
-			out_file << StatusToString(marble_pair.second) << ";" << std::endl;
+			out_file << "{";
+			out_file << marble_pair.first.ToString() << ";";
+			out_file << StatusToString(marble_pair.second) << ";";
 			out_file << "}" << std::endl;
 		}
 		out_file << "~Board" << std::endl;
@@ -339,9 +348,9 @@ public:
 		for (const auto& move : Moves)
 		{
 			out_file << "{";
-			out_file << std::to_string(move.BoardIndex) << ";" << std::endl;
-			out_file << move.StartingLocation.ToString() << ";" << std::endl;
-			out_file << DirectionToString(move.MoveDirection) << ";" << std::endl;
+			out_file << std::to_string(move.BoardIndex) << ";";
+			out_file << move.StartingLocation.ToString() << ";";
+			out_file << DirectionToString(move.MoveDirection) << ";";
 			out_file << "}" << std::endl;
 		}
 		out_file << "~Moves" << std::endl;
@@ -350,15 +359,11 @@ public:
 		out_file << std::to_string(Index) << std::endl;
 		out_file << "~Index" << std::endl;
 
-		out_file << "!NextIndex" << std::endl;
-		out_file << std::to_string(NextIndex) << std::endl;
-		out_file << "~NextIndex" << std::endl;
-
 		out_file << "!MarbleCount" << std::endl;
 		out_file << std::to_string(MarbleCount) << std::endl;
 		out_file << "~MarbleCount" << std::endl;
 
-		out_file << "File end" << std::endl;
+		out_file << "File end";
 		return OutFileName;
 	}
 
@@ -373,7 +378,7 @@ public:
 			InBoardSave = buffer.str();  // Save the content as a string
 
 			saved_board_file.close();
-			std::cout << "Board loaded from " << InFileName << std::endl;
+			//std::cout << "Board loaded from " << InFileName << std::endl;
 		}
 		else
 		{
@@ -465,6 +470,7 @@ public:
 		// Parse index and marble count
 		Index = std::stoi(index_str);
 		MarbleCount = std::stoi(marble_str);
+		HashBoard();
 	}
 
 	void HashBoard()
@@ -571,19 +577,164 @@ public:
 class SolitareSimulation
 {
 public:
-	TArray<std::string> WinningBoards;
-	TArray<std::string> BoardQueue;
-	TArray<std::string> ExploredBoards;
 	std::map<int, int> MarbleIterations;
 
-	void Simulate(bool DFS)
+	bool IsDepthFirstSearch = false;
+
+	void AddWinningBoard(const std::string& InBoard)
 	{
 
+	}
+
+	void AddBoardToQueue(const std::string& InBoard)
+	{
+		std::string out_file_name = "BoardQueue.txt";
+		std::ifstream in_file(out_file_name);
+		std::string current_file_content;
+
+		// Read current file content into memory
+		if (in_file.is_open())
+		{
+			std::stringstream buffer;
+			buffer << in_file.rdbuf();
+			current_file_content = buffer.str();
+			in_file.close();
+		}
+
+		// Locate existing BoardQueue and LastIndex sections
+		size_t board_queue_start = current_file_content.find("!BoardQueue");
+		size_t last_index_start = current_file_content.find("!LastIndex");
+
+		// Prepare new content for the file
+		std::ofstream out_file(out_file_name);
+		if (!out_file.is_open())
+			return;
+
+		out_file << "!NextIndex" << std::endl;
+		out_file << std::to_string(NextIndex) << std::endl;
+		out_file << "~NextIndex" << std::endl;
+
+		// If the BoardQueue section exists, append the new board before LastIndex
+		if (board_queue_start != std::string::npos && last_index_start != std::string::npos)
+		{
+			// Write existing content before the LastIndex
+			for (size_t i = 0; i < last_index_start; ++i)
+				out_file << current_file_content[i];
+
+			// Append the new board
+			out_file << "{";
+			out_file << InBoard;
+			out_file << "}" << std::endl;
+		}
+		else
+		{
+			// Create a new BoardQueue section if it doesn't exist
+			out_file << "!BoardQueue" << std::endl;
+			out_file << "!FirstIndex" << std::endl;
+			out_file << "{";
+			out_file << InBoard;
+			out_file << "}" << std::endl;
+			out_file << "~FirstIndex" << std::endl;
+		}
+
+		// Update the LastIndex
+		out_file << "!LastIndex" << std::endl;
+		out_file << "{";
+		out_file << InBoard;
+		out_file << "}" << std::endl;
+		out_file << "~LastIndex" << std::endl;
+		out_file << "~BoardQueue" << std::endl;
+	}
+
+
+	bool QueueHasMembers()const
+	{
+		std::string out_file_name = "BoardQueue.txt";
+		std::ifstream in_file(out_file_name);
+		std::string current_file_content;
+
+		// Check if file can be opened
+		if (!in_file.is_open())
+			return false;
+
+		std::stringstream buffer;
+		buffer << in_file.rdbuf();
+		current_file_content = buffer.str();
+		in_file.close();
+
+		// Check if there is content in the BoardQueue section
+		return current_file_content.find(!IsDepthFirstSearch ? "!FirstIndex" : "!LastIndex") != std::string::npos;
+	}
+
+	Board* GetBoardFromQueue()
+	{
+		std::string OutFileName;
+		OutFileName += "BoardQueue";
+		OutFileName += ".txt";
+		std::ifstream saved_board_file(OutFileName);
+		std::string InBoardSave;
+		if (saved_board_file.is_open())
+		{
+			std::stringstream buffer;
+			buffer << saved_board_file.rdbuf();  // Read the entire file into the stringstream
+			InBoardSave = buffer.str();  // Save the content as a string
+
+			saved_board_file.close();
+			std::cout << "Board Queue loaded from " << OutFileName << std::endl;
+		}
+		else
+		{
+			Board* board = new Board();
+			board->SaveBoard();
+			return board;
+			std::cerr << "Unable to open file for loading: " << OutFileName << std::endl;
+			return;
+		}
+
+		// Extract substring ranges
+		auto extract_substring = [&](const std::string& start, const std::string& end)
+			{
+				return InBoardSave.substr(InBoardSave.find(start) + start.length(),
+					InBoardSave.find(end) - (InBoardSave.find(start) + start.length()));
+			};
+
+		std::string board_path = !IsDepthFirstSearch ? extract_substring("!FirstIndex", "~FirstIndex") : extract_substring("!LastIndex", "~LastIndex");
+		std::string next_index_str = extract_substring("!NextIndex", "~NextIndex");
+
+		NextIndex = std::stoi(next_index_str);
+
+		Board* board = new Board(board_path);
+		return board;
+	}
+
+	void AddExploredBoard()
+	{
+
+	}
+
+	bool BoardExplored(const std::string& InBoard)
+	{
+
+	}
+
+	void Save()
+	{
+		std::cout << "Saving Started" << std::endl;
+		// Save data when object is destroyed
+		SaveWinningBoards();
+		SaveBoardQueue();
+		SaveExploredBoards();
+		SaveMarbleIterations();
+		std::cout << "Saving Complete" << std::endl;
+	}
+
+	void Simulate()
+	{
 		LoadWinningBoards();
 		LoadBoardQueue();
 		LoadExploredBoards();
 		LoadMarbleIterations();
-
+		int iterations = 0;
 		while (BoardQueue.empty() == false)
 		{
 			Board* popped_board;
@@ -597,12 +748,89 @@ public:
 				popped_board = new Board(BoardQueue.back());
 				BoardQueue.erase(BoardQueue.end() - 1);
 			}
-
 			ExploreMoves(popped_board, false);
-			SaveWinningBoards();
-			SaveBoardQueue();
-			SaveExploredBoards();
-			SaveMarbleIterations();
+			iterations++;
+			if (iterations % 1000 == 0)
+			{
+				iterations = 0;
+				Save();
+			}
+		}
+	}
+
+	void ExploreMoves(Board* InCurrentBoard)
+	{
+		MarbleIterations[InCurrentBoard->MarbleCount]++;
+		if (MarbleIterations[InCurrentBoard->MarbleCount] == 1)
+		{
+			// New itterations started lets save!
+			Save();
+		}
+		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->MarbleCount
+			<< " Iterations for marble amount "
+			<< MarbleIterations[InCurrentBoard->MarbleCount]
+			<< std::endl;
+
+		//CurrentBoard.PrintBoard();
+
+		// Base case: check if it's a winning state
+		if (InCurrentBoard->IsWinningState())
+		{
+			if (DFS)
+				ExploredBoards.push_back(InCurrentBoard->Hash);
+			BoardQueue.push_back(InCurrentBoard->SaveBoard());
+			{
+				// Winning Boards are now safe!
+				Save();
+			}
+			return;
+		}
+		if (InCurrentBoard->HasNoValidMoves())
+		{
+			if (DFS)
+				ExploredBoards.push_back(InCurrentBoard->Hash);
+			return;
+		}
+
+		for (auto marble_pair : InCurrentBoard->BoardArray)
+		{
+			if (marble_pair.second != SlotStatus::Marble)
+				continue;
+			for (auto direction : { Direction::Up,	Direction::Right, Direction::Down, Direction::Left })
+			{
+				Move next_move(InCurrentBoard->Index, marble_pair.first, direction);
+				if (!InCurrentBoard->IsMoveValid(next_move))
+					continue;
+
+				Board* copied_board = new Board(InCurrentBoard);
+				copied_board->Jump(next_move);
+				if (DFS && ExploredBoards.Contains(copied_board->Hash))
+					continue;
+
+				copied_board->Moves.push_back(next_move);
+				copied_board->UpdateIndex();
+				//ExploreMoves(copied_board);
+				BoardQueue.push_back(copied_board->SaveBoard());
+			}
+		}
+		if (DFS)
+			ExploredBoards.push_back(InCurrentBoard->SaveBoard());
+	}
+
+	void PrintWinningBoards()
+	{
+		for (auto board : WinningBoards)
+		{
+			std::cout << "Printing Moves for board: " << board << std::endl;
+			Board display_board;
+			const Board loaded_winning_board = Board(board);
+			for (const Move& move : loaded_winning_board.Moves)
+			{
+				display_board.Jump(move);
+				std::cout << "Move: ";
+				move.PrintMove();
+				display_board.PrintBoard();
+			}
 		}
 	}
 
@@ -674,6 +902,7 @@ public:
 		}
 		else
 		{
+			BoardQueue.push_back(Board().SaveBoard());
 			std::cerr << "Unable to open file for loading: " << OutFileName << std::endl;
 			return;
 		}
@@ -686,6 +915,7 @@ public:
 			};
 
 		std::string winning_boards_str = extract_substring("!BoardQueue", "~BoardQueue");
+		std::string next_index_str = extract_substring("!NextIndex", "~NextIndex");
 		std::string storage_string;
 
 		for (char current_character : winning_boards_str)
@@ -703,6 +933,8 @@ public:
 				continue;
 			storage_string += current_character;
 		}
+
+		NextIndex = std::stoi(next_index_str);
 	}
 
 	void LoadExploredBoards()
@@ -911,6 +1143,10 @@ public:
 		if (!out_file.is_open())
 			return;
 
+		out_file << "!NextIndex" << std::endl;
+		out_file << std::to_string(NextIndex) << std::endl;
+		out_file << "~NextIndex" << std::endl;
+
 		out_file << "!BoardQueue" << std::endl;
 		for (const std::string& member : BoardQueue)
 		{
@@ -940,85 +1176,16 @@ public:
 		}
 		out_file << "~ExploredBoards" << std::endl;
 	}
-
-	void ExploreMoves(Board* InCurrentBoard, bool DFS)
-	{
-		MarbleIterations[InCurrentBoard->MarbleCount]++;
-		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->MarbleCount
-			<< " Iterations for marble amount "
-			<< MarbleIterations[InCurrentBoard->MarbleCount]
-			<< std::endl;
-
-		//CurrentBoard.PrintBoard();
-
-		// Base case: check if it's a winning state
-		if (InCurrentBoard->IsWinningState())
-		{
-			if (DFS)
-				ExploredBoards.push_back(InCurrentBoard->SaveBoard());
-			BoardQueue.push_back(InCurrentBoard->SaveBoard());
-			return;
-		}
-		if (InCurrentBoard->HasNoValidMoves())
-		{
-			if (DFS)
-				ExploredBoards.push_back(InCurrentBoard->SaveBoard());
-			return;
-		}
-
-		for (auto marble_pair : InCurrentBoard->BoardArray)
-		{
-			if (marble_pair.second != SlotStatus::Marble)
-				continue;
-			for (auto direction : { Direction::Up,	Direction::Right, Direction::Down, Direction::Left })
-			{
-				Move next_move(InCurrentBoard->Index, marble_pair.first, direction);
-				if (!InCurrentBoard->IsMoveValid(next_move))
-					continue;
-
-				Board* copied_board = new Board(InCurrentBoard);
-				copied_board->Jump(next_move);
-				if (DFS && ExploredBoards.Contains(copied_board->Hash))
-					continue;
-
-				copied_board->Moves.push_back(next_move);
-				copied_board->UpdateIndex();
-				//ExploreMoves(copied_board);
-				BoardQueue.push_back(copied_board->SaveBoard());
-			}
-		}
-		if (DFS)
-			ExploredBoards.push_back(InCurrentBoard->SaveBoard());
-	}
-
-	void PrintWinningBoards()
-	{
-		for (auto board : WinningBoards)
-		{
-			std::cout << "Printing Moves for board: " << board << std::endl;
-			Board display_board;
-			const Board loaded_winning_board = Board(board);
-			for (const Move& move : loaded_winning_board.Moves)
-			{
-				display_board.Jump(move);
-				std::cout << "Move: ";
-				move.PrintMove();
-				display_board.PrintBoard();
-			}
-		}
-	}
 };
-
-int Board::NextIndex = 0; // Start indexing from 0
 
 int main()
 {
-	SolitareSimulation solitare;
+	SolitareSimulation* solitare = new SolitareSimulation();
 
-	solitare.Simulate(false);
+	solitare->Simulate(false);
 	//solitare.SimulatedDFS();
 
-	solitare.PrintWinningBoards();
+	solitare->PrintWinningBoards();
 
 	return 0;  // Return 0 to indicate successful execution
 }
