@@ -644,7 +644,6 @@ public:
 		out_file.close(); // Close the file after writing
 	}
 
-
 	void AddBoardToQueue(const std::string& InBoard)
 	{
 		std::string out_file_name = "BoardQueue.txt";
@@ -926,30 +925,17 @@ public:
 
 	void Simulate()
 	{
-		LoadWinningBoards();
-		LoadBoardQueue();
-		LoadExploredBoards();
 		LoadMarbleIterations();
 		int iterations = 0;
-		while (BoardQueue.empty() == false)
+		while (QueueHasMembers())
 		{
-			Board* popped_board;
-			if (!DFS)
-			{
-				popped_board = new Board(BoardQueue.front());
-				BoardQueue.erase(BoardQueue.begin());
-			}
-			else
-			{
-				popped_board = new Board(BoardQueue.back());
-				BoardQueue.erase(BoardQueue.end() - 1);
-			}
-			ExploreMoves(popped_board, false);
+			Board* popped_board = GetBoardFromQueue();
+			ExploreMoves(popped_board);
 			iterations++;
 			if (iterations % 1000 == 0)
 			{
 				iterations = 0;
-				Save();
+				SaveMarbleIterations();
 			}
 		}
 	}
@@ -960,7 +946,7 @@ public:
 		if (MarbleIterations[InCurrentBoard->MarbleCount] == 1)
 		{
 			// New itterations started lets save!
-			Save();
+			SaveMarbleIterations();
 		}
 		std::cout << "Exploring moves for Board Index " << InCurrentBoard->Index << " Marbles left: " << InCurrentBoard->MarbleCount
 			<< " Iterations for marble amount "
@@ -972,19 +958,15 @@ public:
 		// Base case: check if it's a winning state
 		if (InCurrentBoard->IsWinningState())
 		{
-			if (DFS)
-				ExploredBoards.push_back(InCurrentBoard->Hash);
-			BoardQueue.push_back(InCurrentBoard->SaveBoard());
-			{
-				// Winning Boards are now safe!
-				Save();
-			}
+			if (IsDepthFirstSearch)
+				AddExploredBoard(InCurrentBoard->Hash);
+			AddWinningBoard(InCurrentBoard->SaveBoard());
 			return;
 		}
 		if (InCurrentBoard->HasNoValidMoves())
 		{
-			if (DFS)
-				ExploredBoards.push_back(InCurrentBoard->Hash);
+			if (IsDepthFirstSearch)
+				AddExploredBoard(InCurrentBoard->Hash);
 			return;
 		}
 
@@ -1000,17 +982,17 @@ public:
 
 				Board* copied_board = new Board(InCurrentBoard);
 				copied_board->Jump(next_move);
-				if (DFS && ExploredBoards.Contains(copied_board->Hash))
+				if (IsDepthFirstSearch && BoardExplored(copied_board->Hash))
 					continue;
 
 				copied_board->Moves.push_back(next_move);
 				copied_board->UpdateIndex();
 				//ExploreMoves(copied_board);
-				BoardQueue.push_back(copied_board->SaveBoard());
+				AddBoardToQueue(copied_board->SaveBoard());
 			}
 		}
 		if (IsDepthFirstSearch)
-			ExploredBoards.push_back(InCurrentBoard->SaveBoard());
+			AddExploredBoard(InCurrentBoard->Hash);
 	}
 
 	void LoadMarbleIterations()
