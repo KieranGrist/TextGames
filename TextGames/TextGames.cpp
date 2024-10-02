@@ -579,7 +579,164 @@ class SolitareSimulation
 public:
 	std::map<int, int> MarbleIterations;
 
-	bool IsDepthFirstSearch = false;
+	bool IsBreadthFirstSearch = false;
+
+	void AddBoardToQueue(const std::string& InBoard)
+	{
+		const std::string out_file_name = "BoardQueue.txt";
+		std::ifstream in_file(out_file_name);
+		std::string current_file_content;
+
+		// Read current file content into memory if the file exists
+		if (in_file.is_open())
+		{
+			std::stringstream buffer;
+			buffer << in_file.rdbuf();
+			current_file_content = buffer.str();
+			in_file.close();
+		}
+
+		// Prepare to write new content to the file
+		std::ofstream out_file(out_file_name);
+		if (!out_file.is_open())
+		{
+			std::cerr << "Error: Unable to open file for writing: " << out_file_name << std::endl;
+			return; // Early exit if the file can't be opened
+		}
+
+		// Write NextIndex
+		out_file << "!NextIndex" << std::endl
+			<< NextIndex << std::endl
+			<< "~NextIndex" << std::endl;
+
+		// Write existing content and the new board entry
+		size_t board_queue_start = current_file_content.find("!BoardQueue");
+		size_t last_index_start = current_file_content.find("~BoardQueue");
+
+
+		if (board_queue_start != std::string::npos && last_index_start != std::string::npos)
+		{
+			auto board_content = current_file_content.substr(board_queue_start, last_index_start);
+			// Preserve the existing board entries
+			out_file << "!BoardQueue" << std::endl;
+			std::istringstream content_stream(board_content);
+			std::string line;
+			while (std::getline(content_stream, line))
+			{
+				if (line == "")
+					continue;
+				if (line == "!BoardQueue")
+					continue;
+				if (line == "~BoardQueue")
+					continue;
+				out_file << line << std::endl;
+			}
+			out_file << InBoard << std::endl; // Add the new board
+			out_file << "~BoardQueue" << std::endl; // Close the queue
+		}
+		else
+		{
+			// If no BoardQueue section exists, create it
+			out_file << "!BoardQueue" << std::endl
+				<< InBoard << std::endl
+				<< "~BoardQueue" << std::endl;
+		}
+
+		out_file.close(); // Ensure the file is properly closed
+	}
+
+	Board* GetBoardFromQueue()
+	{
+		const std::string out_file_name = "BoardQueue.txt";
+		std::ifstream saved_board_file(out_file_name);
+		std::string file_content;
+
+		if (!saved_board_file.is_open())
+		{
+			std::cerr << "Error: Failed to open file: " << out_file_name << std::endl;
+			return new Board(); // Return a new Board instead of nullptr
+		}
+
+		// Read the entire file into memory
+		std::stringstream buffer;
+		buffer << saved_board_file.rdbuf();
+		file_content = buffer.str();
+		saved_board_file.close();
+
+		// Extract NextIndex
+		size_t next_index_start = file_content.find("!NextIndex");
+		size_t next_index_end = file_content.find("~NextIndex");
+
+		if (next_index_start == std::string::npos || next_index_end == std::string::npos)
+		{
+			std::cerr << "Error: NextIndex section not found!" << std::endl;
+			return new Board(); // Return default board
+		}
+
+		std::string next_index_str = file_content.substr(next_index_start + 11, next_index_end -12);
+		NextIndex = std::stoi(next_index_str); // Convert NextIndex string to integer
+
+		// Determine the board to retrieve based on search strategy (DFS/BFS)
+		std::string board_path;
+		std::istringstream content_stream(file_content.substr(next_index_end + 11));
+		std::string line;
+		std::string last_line;
+		bool board_found = false;
+
+		if (IsBreadthFirstSearch)  // DFS retrieves the first board
+		{
+			while (std::getline(content_stream, line))
+			{
+				if (line == "!BoardQueue")
+					continue;
+
+				if (line == "~BoardQueue")
+					break;
+				if (line == "!NextIndex")
+					continue;
+				if (line == "~NextIndex")
+					continue;
+
+				board_path = line;
+				board_found = true;
+				break; // Get the first board entry
+			}
+		}
+		else  // BFS retrieves the last board
+		{
+			while (std::getline(content_stream, line))
+			{
+				if (line == "!BoardQueue" || line == "~BoardQueue")
+					continue;
+
+				last_line = line;  // Track the last board entry
+				board_found = true;
+			}
+			board_path = last_line; // Assign the last board
+		}
+
+		if (!board_found)
+		{
+			std::cerr << "Error: No boards found in BoardQueue!" << std::endl;
+			return new Board(); // Return default board if nothing is found
+		}
+
+		// Remove the retrieved board from file content in memory
+		std::ofstream out_file(out_file_name);
+		content_stream.clear(); // Clear the EOF flag from previous loop
+		content_stream.str(file_content); // Reset content stream with the original file content
+
+		while (std::getline(content_stream, line))
+		{
+			if (line == board_path)
+				continue; // Skip the board we just retrieved
+			out_file << line << std::endl; // Rebuild content without the retrieved board
+		}
+		out_file.close();
+
+		// Return the retrieved board
+		return new Board(board_path);
+	}
 
 	void AddWinningBoard(const std::string& InBoard)
 	{
@@ -642,197 +799,6 @@ public:
 		}
 
 		out_file.close(); // Close the file after writing
-	}
-
-	void AddBoardToQueue(const std::string& InBoard)
-	{
-		std::string out_file_name = "BoardQueue.txt";
-		std::ifstream in_file(out_file_name);
-		std::string current_file_content;
-
-		// Read current file content into memory
-		if (in_file.is_open())
-		{
-			std::stringstream buffer;
-			buffer << in_file.rdbuf();
-			current_file_content = buffer.str();
-			in_file.close();
-		}
-
-		// Locate existing BoardQueue and LastIndex sections
-		size_t board_queue_start = current_file_content.find("!BoardQueue");
-		size_t last_index_start = current_file_content.find("!LastIndex");
-
-		// Prepare new content for the file
-		std::ofstream out_file(out_file_name);
-		if (!out_file.is_open())
-			return;
-
-		out_file << "!NextIndex" << std::endl;
-		out_file << std::to_string(NextIndex) << std::endl;
-		out_file << "~NextIndex" << std::endl;
-
-		// If the BoardQueue section exists, append the new board before LastIndex
-		if (board_queue_start != std::string::npos && last_index_start != std::string::npos)
-		{
-			// Write existing content before the LastIndex
-			for (size_t i = 0; i < last_index_start; ++i)
-				out_file << current_file_content[i];
-
-			// Append the new board
-			out_file << "{";
-			out_file << InBoard;
-			out_file << "}" << std::endl;
-		}
-		else
-		{
-			// Create a new BoardQueue section if it doesn't exist
-			out_file << "!BoardQueue" << std::endl;
-			out_file << "!FirstIndex" << std::endl;
-			out_file << "{";
-			out_file << InBoard;
-			out_file << "}" << std::endl;
-			out_file << "~FirstIndex" << std::endl;
-		}
-
-		// Update the LastIndex
-		out_file << "!LastIndex" << std::endl;
-		out_file << "{";
-		out_file << InBoard;
-		out_file << "}" << std::endl;
-		out_file << "~LastIndex" << std::endl;
-		out_file << "~BoardQueue" << std::endl;
-	}
-
-	bool QueueHasMembers()const
-	{
-		std::string out_file_name = "BoardQueue.txt";
-		std::ifstream in_file(out_file_name);
-		std::string current_file_content;
-
-		// Check if file can be opened
-		if (!in_file.is_open())
-			return false;
-
-		std::stringstream buffer;
-		buffer << in_file.rdbuf();
-		current_file_content = buffer.str();
-		in_file.close();
-
-		// Check if there is content in the BoardQueue section
-		return current_file_content.find(!IsDepthFirstSearch ? "!FirstIndex" : "!LastIndex") != std::string::npos;
-	}
-
-	Board* GetBoardFromQueue()
-	{
-		std::string out_file_name = "BoardQueue.txt";
-		std::ifstream saved_board_file(out_file_name);
-		std::string in_board_save;
-
-		if (saved_board_file.is_open())
-		{
-			std::stringstream buffer;
-			buffer << saved_board_file.rdbuf();  // Read the entire file into the stringstream
-			in_board_save = buffer.str();  // Save the content as a string
-			saved_board_file.close();
-			std::cout << "Board Queue loaded from " << out_file_name << std::endl;
-		}
-		else
-		{
-			std::cerr << "Unable to open file for loading: " << out_file_name << std::endl;
-			return nullptr; // Return nullptr if file can't be opened
-		}
-
-		// Extract NextIndex
-		auto next_index_start = in_board_save.find("!NextIndex");
-		auto next_index_end = in_board_save.find("~NextIndex");
-		if (next_index_start == std::string::npos || next_index_end == std::string::npos)
-		{
-			std::cerr << "NextIndex not found!" << std::endl;
-			return nullptr;
-		}
-		std::string next_index_str = in_board_save.substr(next_index_start + 11, next_index_end - (next_index_start + 11));
-		NextIndex = std::stoi(next_index_str); // Convert to integer
-
-		// Determine which board to use (First or Last)
-		std::string board_path;
-		if (!IsDepthFirstSearch)
-		{
-			auto first_index_start = in_board_save.find("!FirstIndex");
-			auto first_index_end = in_board_save.find("~FirstIndex");
-			if (first_index_start != std::string::npos && first_index_end != std::string::npos)
-			{
-				board_path = in_board_save.substr(first_index_start + 12, first_index_end - (first_index_start + 12));
-			}
-		}
-		else
-		{
-			auto last_index_start = in_board_save.find("!LastIndex");
-			auto last_index_end = in_board_save.find("~LastIndex");
-			if (last_index_start != std::string::npos && last_index_end != std::string::npos)
-			{
-				board_path = in_board_save.substr(last_index_start + 11, last_index_end - (last_index_start + 11));
-			}
-		}
-
-		if (board_path.empty())
-		{
-			std::cerr << "Failed to extract board path!" << std::endl;
-			return nullptr;
-		}
-
-		Board* board = new Board(board_path); // Create a new board with the extracted path
-
-		// Now update the file to remove the extracted board and adjust indices
-		std::ofstream out_file(out_file_name);
-		if (!out_file.is_open())
-		{
-			std::cerr << "Unable to open file for writing: " << out_file_name << std::endl;
-			return board;
-		}
-
-		out_file << "!NextIndex" << std::endl;
-		out_file << std::to_string(NextIndex) << std::endl;
-		out_file << "~NextIndex" << std::endl;
-
-		out_file << "!BoardQueue" << std::endl;
-
-		bool first_written = false;
-		bool last_written = false;
-
-		std::istringstream current_stream(in_board_save);
-		std::string line;
-
-		while (std::getline(current_stream, line))
-		{
-			// Check for FirstIndex or LastIndex
-			if (line.find("!FirstIndex") != std::string::npos && !first_written)
-			{
-				out_file << line << std::endl; // Write FirstIndex tag
-				first_written = true;
-			}
-			else if (line.find("!LastIndex") != std::string::npos && !last_written)
-			{
-				out_file << line << std::endl; // Write LastIndex tag
-				last_written = true;
-			}
-			else if (line.find(board_path) == std::string::npos)
-			{
-				out_file << line << std::endl; // Write other boards if they aren't the removed one
-			}
-		}
-
-		// If we have removed the only board, we need to write a new LastIndex
-		if (first_written && !last_written)
-		{
-			out_file << "!LastIndex" << std::endl;
-			out_file << "{" << board_path << "}" << std::endl;
-			out_file << "~LastIndex" << std::endl;
-		}
-
-		out_file << "~BoardQueue" << std::endl;
-
-		return board;
 	}
 
 	void AddExploredBoard(const std::string& InHash)
@@ -927,9 +893,9 @@ public:
 	{
 		LoadMarbleIterations();
 		int iterations = 0;
-		while (QueueHasMembers())
+		Board* popped_board = GetBoardFromQueue();
+		while (popped_board)
 		{
-			Board* popped_board = GetBoardFromQueue();
 			ExploreMoves(popped_board);
 			iterations++;
 			if (iterations % 1000 == 0)
@@ -937,6 +903,7 @@ public:
 				iterations = 0;
 				SaveMarbleIterations();
 			}
+			popped_board = GetBoardFromQueue();
 		}
 	}
 
@@ -958,14 +925,14 @@ public:
 		// Base case: check if it's a winning state
 		if (InCurrentBoard->IsWinningState())
 		{
-			if (IsDepthFirstSearch)
+			if (!IsBreadthFirstSearch)
 				AddExploredBoard(InCurrentBoard->Hash);
 			AddWinningBoard(InCurrentBoard->SaveBoard());
 			return;
 		}
 		if (InCurrentBoard->HasNoValidMoves())
 		{
-			if (IsDepthFirstSearch)
+			if (IsBreadthFirstSearch)
 				AddExploredBoard(InCurrentBoard->Hash);
 			return;
 		}
@@ -982,7 +949,7 @@ public:
 
 				Board* copied_board = new Board(InCurrentBoard);
 				copied_board->Jump(next_move);
-				if (IsDepthFirstSearch && BoardExplored(copied_board->Hash))
+				if (!IsBreadthFirstSearch && BoardExplored(copied_board->Hash))
 					continue;
 
 				copied_board->Moves.push_back(next_move);
@@ -991,7 +958,7 @@ public:
 				AddBoardToQueue(copied_board->SaveBoard());
 			}
 		}
-		if (IsDepthFirstSearch)
+		if (!IsBreadthFirstSearch)
 			AddExploredBoard(InCurrentBoard->Hash);
 	}
 
@@ -1071,9 +1038,9 @@ public:
 		out_file << "!MarbleIterations" << std::endl;
 		for (auto marble_iterations : MarbleIterations)
 		{
-			out_file << "{" << std::endl;
-			out_file << std::to_string(marble_iterations.first) << ";" << std::endl;
-			out_file << std::to_string(marble_iterations.second) << ";" << std::endl;
+			out_file << "{";
+			out_file << std::to_string(marble_iterations.first) << ";";
+			out_file << std::to_string(marble_iterations.second) << ";";
 			out_file << "}" << std::endl;
 		}
 		out_file << "~MarbleIterations" << std::endl;
@@ -1084,10 +1051,10 @@ int main()
 {
 	SolitareSimulation* solitare = new SolitareSimulation();
 
-	solitare->Simulate(false);
+	solitare->IsBreadthFirstSearch = true;
+	solitare->Simulate();
 	//solitare.SimulatedDFS();
 
-	solitare->PrintWinningBoards();
 
 	return 0;  // Return 0 to indicate successful execution
 }
