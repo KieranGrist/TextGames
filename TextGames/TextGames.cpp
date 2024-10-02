@@ -400,8 +400,8 @@ public:
 		}
 		else
 		{
-			 board = BoardQueue.back();
-			BoardQueue.erase(BoardQueue.end() -1);
+			board = BoardQueue.back();
+			BoardQueue.erase(BoardQueue.end() - 1);
 		}
 		return board;
 	}
@@ -489,6 +489,14 @@ public:
 		std::ofstream out_file(OutFileName);
 		if (!out_file.is_open())
 			return;
+
+		for (auto marble_iterations : MarbleIterations)
+		{
+			out_file << "{";
+			out_file << std::to_string(marble_iterations.first) << ";";
+			out_file << std::to_string(marble_iterations.second) << ";";
+			out_file << "}" << std::endl;
+		}
 
 		for (Board* winning_board : WinningBoards)
 		{
