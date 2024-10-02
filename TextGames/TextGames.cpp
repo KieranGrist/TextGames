@@ -409,6 +409,7 @@ public:
 	void AddWinningBoard(Board* InBoard)
 	{
 		WinningBoards.push_back(InBoard);
+		SaveWinningBoards();
 	}
 
 	void AddExploredBoard(Board* InBoard)
@@ -426,6 +427,7 @@ public:
 			ExploreMoves(popped_board);
 			popped_board = GetBoardFromQueue();
 		}
+		SaveWinningBoards();
 	}
 
 	void ExploreMoves(Board* InCurrentBoard)
@@ -478,6 +480,57 @@ public:
 			AddExploredBoard(InCurrentBoard);
 	}
 
+	void SaveWinningBoards()
+	{
+		std::string OutFileName;
+		OutFileName += "WinningBoards";
+		OutFileName += ".txt";
+
+		std::ofstream out_file(OutFileName);
+		if (!out_file.is_open())
+			return;
+
+		for (Board* winning_board : WinningBoards)
+		{
+			out_file << winning_board->Index << std::endl;
+
+			Board display_board;
+			for (const Move& move : winning_board->Moves)
+			{
+				display_board.Jump(move);
+				// Loop through each Y coordinate (row) from 0 to 6 (7x7 grid)
+				out_file << "  ";
+				for (int y = 0; y < 7; ++y)
+					out_file << y << " ";
+				out_file << std::endl;
+				for (int y = 0; y < 7; ++y)
+				{
+					out_file << y << " ";
+					// Loop through each X coordinate (column) from 0 to 6
+					for (int x = 0; x < 7; ++x)
+					{
+						Location loc(x, y); // Create the location to check in the BoardArray
+
+						// Check the status of each slot
+						if (winning_board->BoardArray[loc] == SlotStatus::Blocked)
+							out_file << "  ";  // Blocked spot
+						else if (winning_board->BoardArray[loc] == SlotStatus::Empty)
+							out_file << "X ";  // Empty spot
+						else if (winning_board->BoardArray[loc] == SlotStatus::Marble)
+							out_file << "O ";  // Marble present
+					}
+					out_file << std::endl;  // Newline after each row
+				}
+
+				for (const auto& move : winning_board->Moves)
+				{
+					out_file << "Starting Board Index: " << move.BoardIndex
+						<< " Location: " << move.StartingLocation.ToString()
+						<< " Direction: " << DirectionToString(move.MoveDirection) << std::endl;
+				}
+			}
+		}
+	}
 };
 
 int main()
